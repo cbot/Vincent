@@ -10,7 +10,7 @@ private var downloadTaskKey: UInt8 = 0
 public extension UIImageView {
     var downloadTaskIdentifier: String? {
         get {
-            return objc_getAssociatedObject(self, &downloadTaskKey) as String?
+            return objc_getAssociatedObject(self, &downloadTaskKey) as! String?
         }
         set(newValue) {
             objc_setAssociatedObject(self, &downloadTaskKey, newValue, objc_AssociationPolicy(OBJC_ASSOCIATION_RETAIN))

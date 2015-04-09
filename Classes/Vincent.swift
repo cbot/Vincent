@@ -56,7 +56,7 @@ public enum CacheType {
     
     // MARK: - Constructor
     public init(identifier: String) {
-        var cachesDirectory = NSSearchPathForDirectoriesInDomains(.CachesDirectory, .UserDomainMask, true).first as String
+        var cachesDirectory = NSSearchPathForDirectoriesInDomains(.CachesDirectory, .UserDomainMask, true).first as! String
         diskCacheFolderUrl = NSURL(fileURLWithPath: cachesDirectory)!.URLByAppendingPathComponent(identifier, isDirectory: false)
         NSFileManager.defaultManager().createDirectoryAtURL(diskCacheFolderUrl, withIntermediateDirectories: true, attributes: nil, error: nil);
         super.init()
@@ -94,7 +94,7 @@ public enum CacheType {
                     }
                 } else {
                     var error : NSError?
-                    if this.validateResponse(response as NSHTTPURLResponse, error: &error) {
+                    if this.validateResponse(response as! NSHTTPURLResponse, error: &error) {
                         image = UIImage(data: NSData(contentsOfFile: tmpImageUrl.path!)!)
                         if let image = image {
                             this.cacheImage(image, key: cacheKey, tempImageFile: tmpImageUrl)
@@ -155,7 +155,7 @@ public enum CacheType {
     private func cacheImage(image: UIImage, key: String, tempImageFile: NSURL) {
         var fileSize = 0
         if let attributes = NSFileManager.defaultManager().attributesOfItemAtPath(tempImageFile.path!, error: nil) {
-            fileSize = (attributes[NSFileSize] as NSNumber!).integerValue
+            fileSize = (attributes[NSFileSize] as! NSNumber!).integerValue
         }
         
         let cacheEntry = VincentCacheEntry(cacheKey: key, image: image, lastAccessed: NSDate(), fileSize: fileSize)
@@ -168,7 +168,7 @@ public enum CacheType {
     
     private func retrieveCachedImageForKey(key: String?, ignoreLastAccessed: Bool) -> UIImage? {
         if let key = key {
-            var cacheEntry = memoryCache.objectForKey(key) as VincentCacheEntry?
+            var cacheEntry = memoryCache.objectForKey(key) as! VincentCacheEntry?
             if cacheEntry == nil && useDiskCache {
                 cacheEntry = loadCacheEntryFromDiskForKey(key)
                 if cacheEntry != nil {
@@ -215,7 +215,7 @@ public enum CacheType {
                         if let image = image {
                             var fileSize = 0
                             if let attributes = NSFileManager.defaultManager().attributesOfItemAtPath(path, error: nil) {
-                                fileSize = (attributes[NSFileSize] as NSNumber!).integerValue
+                                fileSize = (attributes[NSFileSize] as! NSNumber!).integerValue
                             }
                             
                             let cacheEntry = VincentCacheEntry(cacheKey: key, image: image, lastAccessed: lastAccess, fileSize: fileSize)
@@ -264,7 +264,7 @@ public enum CacheType {
     }
     
     private func transformUrlToCacheKey(url: String) -> String {
-        if let key = keyCache.objectForKey(url) as String? {
+        if let key = keyCache.objectForKey(url) as! String? {
             return key
         } else {
             let key = md5(url)
@@ -282,7 +282,7 @@ public enum CacheType {
         if let path = diskCacheFolderUrl.path {
             if let filesArray = NSFileManager.defaultManager().contentsOfDirectoryAtPath(path, error: nil) {
                 let now = NSDate()
-                for file in filesArray as Array<String> {
+                for file in filesArray as! Array<String> {
                     let url : NSURL = diskCacheFolderUrl.URLByAppendingPathComponent(file, isDirectory: false)
                     var lastAccess : AnyObject?
                     url.getResourceValue(&lastAccess, forKey: NSURLContentAccessDateKey, error: nil)
