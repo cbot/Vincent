@@ -201,7 +201,6 @@ public class FadeInImageView: UIImageView {
                 animation.duration = fadeInDuration
                 animation.fromValue = 0
                 animation.toValue = 1
-                animation.removedOnCompletion = false
                 animation.fillMode = kCAFillModeBoth
                 
                 layer.addAnimation(animation, forKey: "fadeIn")
