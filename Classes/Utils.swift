@@ -185,3 +185,27 @@ public extension UIButton {
         self.downloadTaskIdentifier = nil
     }
 }
+
+public class FadeInImageView: UIImageView {
+    private var fadeInDone: Bool = false
+    private var fadeInInProgress: Bool = false
+    @IBInspectable var fadeInDuration: Double = 0.2
+    
+    override public var image: UIImage? {
+    
+        willSet {
+            if !fadeInDone && newValue != nil {
+                fadeInDone = true
+                
+                let animation = CABasicAnimation(keyPath: "opacity")
+                animation.duration = fadeInDuration
+                animation.fromValue = 0
+                animation.toValue = 1
+                animation.removedOnCompletion = false
+                animation.fillMode = kCAFillModeBoth
+                
+                layer.addAnimation(animation, forKey: "fadeIn")
+            }
+        }
+    }
+}
