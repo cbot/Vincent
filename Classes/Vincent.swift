@@ -56,9 +56,13 @@ public enum CacheType {
     
     // MARK: - Constructor
     public init(identifier: String) {
-        var cachesDirectory = NSSearchPathForDirectoriesInDomains(.CachesDirectory, .UserDomainMask, true).first as! String
-        diskCacheFolderUrl = NSURL(fileURLWithPath: cachesDirectory)!.URLByAppendingPathComponent(identifier, isDirectory: false)
-        NSFileManager.defaultManager().createDirectoryAtURL(diskCacheFolderUrl, withIntermediateDirectories: true, attributes: nil, error: nil);
+        let cachesDirectory = NSSearchPathForDirectoriesInDomains(.CachesDirectory, .UserDomainMask, true).first!
+        diskCacheFolderUrl = NSURL(fileURLWithPath: cachesDirectory).URLByAppendingPathComponent(identifier, isDirectory: false)
+        do {
+            try NSFileManager.defaultManager().createDirectoryAtURL(diskCacheFolderUrl, withIntermediateDirectories: true, attributes: nil)
+        } catch let error {
+            print("Vincent: unable to create disk cache folder: \(error)")
+        }
         super.init()
         NSNotificationCenter .defaultCenter().addObserver(self, selector: "appWillResignActive:", name: UIApplicationWillResignActiveNotification, object: nil)
     }
@@ -66,7 +70,7 @@ public enum CacheType {
     // MARK: - Public methods
     public func downloadImageFromUrl(url: NSURL, cacheType: CacheType, success successBlock: ((image: UIImage) -> ())?, error errorBlock: ((error: NSError) -> ())?) -> String? {
         var image : UIImage?
-        let cacheKey = transformUrlToCacheKey(url.absoluteString!)
+        let cacheKey = transformUrlToCacheKey(url.absoluteString)
         
         if cacheType == .ForceCache {
             image = retrieveCachedImageForKey(cacheKey, ignoreLastAccessed: true)
@@ -93,8 +97,14 @@ public enum CacheType {
                         errorBlock?(error: error!)
                     }
                 } else {
-                    var error : NSError?
-                    if this.validateResponse(response as! NSHTTPURLResponse, error: &error) {
+                    guard let tmpImageUrl = tmpImageUrl else {
+                        errorBlock?(error: error ?? NSError(domain: "Vincent", code: -3, userInfo: [NSLocalizedDescriptionKey: "download error"]))
+                        return
+                    }
+
+                    do {
+                        try this.validateResponse(response as! NSHTTPURLResponse)
+                        
                         image = UIImage(data: NSData(contentsOfFile: tmpImageUrl.path!)!)
                         if let image = image {
                             this.cacheImage(image, key: cacheKey, tempImageFile: tmpImageUrl)
@@ -104,8 +114,10 @@ public enum CacheType {
                         } else if (!taskInvalidated) {
                             errorBlock?(error: NSError(domain: "Vincent", code: -2, userInfo:[NSLocalizedDescriptionKey: "unable to decode image"]))
                         }
-                    } else if (!taskInvalidated) {
-                        errorBlock?(error: error!)
+                    } catch let error {
+                        if (!taskInvalidated) {
+                            errorBlock?(error: error as NSError)
+                        }
                     }
                 }
             }
@@ -120,7 +132,7 @@ public enum CacheType {
     
     public func retrieveCachedImageForUrl(url: NSURL?) -> UIImage? {
         if let url = url {
-            let cacheKey = transformUrlToCacheKey(url.absoluteString!)
+            let cacheKey = transformUrlToCacheKey(url.absoluteString)
             return retrieveCachedImageForKey(cacheKey, ignoreLastAccessed: true)
         }
         return nil
@@ -128,7 +140,7 @@ public enum CacheType {
     
     public func deleteCachedImageForUrl(url: NSURL?) {
         if let url = url {
-            let cacheKey = transformUrlToCacheKey(url.absoluteString!)
+            let cacheKey = transformUrlToCacheKey(url.absoluteString)
             deleteCachedImageForKey(cacheKey)
         }
     }
@@ -153,9 +165,12 @@ public enum CacheType {
     
     // MARK: - Caching
     private func cacheImage(image: UIImage, key: String, tempImageFile: NSURL) {
-        var fileSize = 0
-        if let attributes = NSFileManager.defaultManager().attributesOfItemAtPath(tempImageFile.path!, error: nil) {
+        var fileSize: Int
+        do {
+            let attributes = try NSFileManager.defaultManager().attributesOfItemAtPath(tempImageFile.path!)
             fileSize = (attributes[NSFileSize] as! NSNumber!).integerValue
+        } catch {
+            fileSize = 0
         }
         
         let cacheEntry = VincentCacheEntry(cacheKey: key, image: image, lastAccessed: NSDate(), fileSize: fileSize)
@@ -206,25 +221,35 @@ public enum CacheType {
             let url = diskCacheFolderUrl.URLByAppendingPathComponent(key, isDirectory: false)
             if let path = url.path {
                 dispatch_semaphore_wait(self.diskCacheSemaphore, DISPATCH_TIME_FOREVER);
+                
+                defer {
+                    dispatch_semaphore_signal(self.diskCacheSemaphore)
+                }
+                
                 if NSFileManager.defaultManager().fileExistsAtPath(path) {
                     var lastAccess : AnyObject?
-                    url.getResourceValue(&lastAccess, forKey: NSURLContentAccessDateKey, error: nil)
+                    do {
+                        try url.getResourceValue(&lastAccess, forKey: NSURLContentAccessDateKey)
+                    } catch {
+                        return nil
+                    }
                     
                     if let lastAccess = lastAccess as? NSDate {
-                        var image = UIImage(contentsOfFile: path)
+                        let image = UIImage(contentsOfFile: path)
                         if let image = image {
                             var fileSize = 0
-                            if let attributes = NSFileManager.defaultManager().attributesOfItemAtPath(path, error: nil) {
+                            do {
+                                let attributes = try NSFileManager.defaultManager().attributesOfItemAtPath(path)
                                 fileSize = (attributes[NSFileSize] as! NSNumber!).integerValue
+                            } catch {
+                                return nil
                             }
                             
                             let cacheEntry = VincentCacheEntry(cacheKey: key, image: image, lastAccessed: lastAccess, fileSize: fileSize)
-                            dispatch_semaphore_signal(self.diskCacheSemaphore)
                             return cacheEntry
                         }
                     }
                 }
-                dispatch_semaphore_signal(self.diskCacheSemaphore)
             }
         }
         return nil
@@ -236,31 +261,33 @@ public enum CacheType {
             
             dispatch_semaphore_wait(self.diskCacheSemaphore, DISPATCH_TIME_FOREVER);
             if let tempImageFile = tempImageFile { // store new image
-                NSFileManager.defaultManager().moveItemAtURL(tempImageFile, toURL: url, error: nil)
+                do {
+                    try NSFileManager.defaultManager().moveItemAtURL(tempImageFile, toURL: url)
+                } catch {}
             } else if let cacheEntry = cacheEntry { // update image access date
-                url.setResourceValue(cacheEntry.lastAccessed, forKey: NSURLContentAccessDateKey, error: nil)
+                do {
+                    try url.setResourceValue(cacheEntry.lastAccessed, forKey: NSURLContentAccessDateKey)
+                } catch {}
             } else { // delete image
-                NSFileManager.defaultManager().removeItemAtURL(url, error: nil)
+                do {
+                    try NSFileManager.defaultManager().removeItemAtURL(url)
+                } catch {}
             }
             dispatch_semaphore_signal(self.diskCacheSemaphore)
         }
     }
     
     // MARK: - Utility
-    private func validateResponse(response: NSHTTPURLResponse, error: NSErrorPointer) -> Bool {
+    private func validateResponse(response: NSHTTPURLResponse) throws {
         if response.statusCode >= 400 {
-            error.memory = NSError(domain: "Vincent", code: response.statusCode, userInfo: [NSLocalizedDescriptionKey: NSHTTPURLResponse.localizedStringForStatusCode(response.statusCode)])
-            return false
+            throw NSError(domain: "Vincent", code: response.statusCode, userInfo: [NSLocalizedDescriptionKey: NSHTTPURLResponse.localizedStringForStatusCode(response.statusCode)])
         }
         
         if let mimeType = response.MIMEType {
             if !mimeType.hasPrefix("image/") {
-                error.memory = NSError(domain: "Vincent", code: -1, userInfo: [NSLocalizedDescriptionKey: "invalid mime type"])
-                return false
+                throw NSError(domain: "Vincent", code: -1, userInfo: [NSLocalizedDescriptionKey: "invalid mime type"])
             }
         }
-        
-        return true
     }
     
     private func transformUrlToCacheKey(url: String) -> String {
@@ -280,20 +307,25 @@ public enum CacheType {
     private func cleanup() {
         self.memoryCache.removeAllObjects()
         if let path = diskCacheFolderUrl.path {
-            if let filesArray = NSFileManager.defaultManager().contentsOfDirectoryAtPath(path, error: nil) {
+            do {
+                let filesArray = try NSFileManager.defaultManager().contentsOfDirectoryAtPath(path)
                 let now = NSDate()
-                for file in filesArray as! Array<String> {
+                for file in filesArray {
                     let url : NSURL = diskCacheFolderUrl.URLByAppendingPathComponent(file, isDirectory: false)
                     var lastAccess : AnyObject?
-                    url.getResourceValue(&lastAccess, forKey: NSURLContentAccessDateKey, error: nil)
-                    
-                    if let lastAccess = lastAccess as? NSDate {
-                        if (now.timeIntervalSinceDate(lastAccess) > 30 * 24 * 3600) {
-                            NSFileManager.defaultManager().removeItemAtURL(url, error: nil)
+                    do {
+                        try url.getResourceValue(&lastAccess, forKey: NSURLContentAccessDateKey)
+                        if let lastAccess = lastAccess as? NSDate {
+                            if (now.timeIntervalSinceDate(lastAccess) > 30 * 24 * 3600) {
+                                try NSFileManager.defaultManager().removeItemAtURL(url)
+                            }
                         }
+                    } catch {
+                        continue
                     }
+                    
                 }
-            }
+            } catch {}
         }
     }
     

@@ -14,7 +14,7 @@ public extension UIImageView {
             return objc_getAssociatedObject(self, &downloadTaskKey) as! String?
         }
         set(newValue) {
-            objc_setAssociatedObject(self, &downloadTaskKey, newValue, objc_AssociationPolicy(OBJC_ASSOCIATION_RETAIN))
+            objc_setAssociatedObject(self, &downloadTaskKey, newValue, objc_AssociationPolicy.OBJC_ASSOCIATION_RETAIN)
         }
     }
     
@@ -103,7 +103,7 @@ public extension UIButton {
             return objc_getAssociatedObject(self, &downloadTaskKey) as! String?
         }
         set(newValue) {
-            objc_setAssociatedObject(self, &downloadTaskKey, newValue, objc_AssociationPolicy(OBJC_ASSOCIATION_RETAIN))
+            objc_setAssociatedObject(self, &downloadTaskKey, newValue, objc_AssociationPolicy.OBJC_ASSOCIATION_RETAIN)
         }
     }
     
@@ -168,7 +168,7 @@ public extension UIButton {
                     if error.code != -999 {
                         self?.downloadTaskIdentifier = nil
                         dispatch_async(dispatch_get_main_queue(), { () -> Void in
-                            let _ = completion?(error: error, image: nil)
+                            completion?(error: error, image: nil)
                         })
                     }
                 })
