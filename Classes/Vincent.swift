@@ -130,10 +130,30 @@ public enum CacheType {
         return uuid
     }
     
+    public func storeImage(imageData: NSData?, forUrl url: NSURL?) {
+        if let url = url {
+            let cacheKey = transformUrlToCacheKey(url.absoluteString)
+            storeImage(imageData, forKey: cacheKey)
+        }
+    }
+    
+    public func storeImage(imageData: NSData?, forKey key: String?) {
+        if let cacheKey = key, imageData = imageData, image = UIImage(data: imageData), tmpUrl = tmpFileWithData(imageData) {
+            cacheImage(image, key: cacheKey, tempImageFile: tmpUrl)
+        }
+    }
+    
+    public func retrieveCachedImageForKey(key: String?) -> UIImage? {
+        if let cacheKey = key {
+            return retrieveCachedImageForKey(cacheKey, ignoreLastAccessed: true)
+        }
+        return nil
+    }
+    
     public func retrieveCachedImageForUrl(url: NSURL?) -> UIImage? {
         if let url = url {
             let cacheKey = transformUrlToCacheKey(url.absoluteString)
-            return retrieveCachedImageForKey(cacheKey, ignoreLastAccessed: true)
+            return retrieveCachedImageForKey(cacheKey)
         }
         return nil
     }
@@ -175,7 +195,10 @@ public enum CacheType {
         
         let cacheEntry = VincentCacheEntry(cacheKey: key, image: image, lastAccessed: NSDate(), fileSize: fileSize)
         
+        // mem cache
         memoryCache.setObject(cacheEntry, forKey: key, cost: fileSize)
+        
+        // disk cache
         if useDiskCache {
             saveCacheEntryToDisk(cacheEntry, tempImageFile: tempImageFile, forKey: key)
         }
@@ -302,6 +325,16 @@ public enum CacheType {
     
     private func md5(input: String) -> String! {
         return (input as NSString).MD5Digest()
+    }
+    
+    private func tmpFileWithData(data: NSData) -> NSURL? {
+        let uuid = NSUUID().UUIDString
+        let tmpFileUrl = NSURL(fileURLWithPath: NSTemporaryDirectory()).URLByAppendingPathComponent(uuid)
+        if data.writeToURL(tmpFileUrl, atomically: true) {
+            return tmpFileUrl
+        } else {
+            return nil
+        }
     }
     
     private func cleanup() {
