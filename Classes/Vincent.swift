@@ -4,7 +4,7 @@
 //  Created by Kai Straßmann
 
 import UIKit
-import CryptoSwift
+import MD5Digest
 
 public enum CacheType {
     case Automatic     // if a non stale image is contained in the cache, it is used. otherwise Protocol cache type is used
@@ -301,7 +301,7 @@ public enum CacheType {
     }
     
     private func md5(input: String) -> String! {
-        return input.md5()
+        return (input as NSString).MD5Digest()
     }
     
     private func cleanup() {

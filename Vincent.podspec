@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = 'Vincent'
-  s.version      = '0.0.6'
+  s.version      = '1.0.0-beta1'
   s.summary      = 'A small library that makes it easy to download and display remote images.'
   s.homepage     = 'https://github.com/cbot/Vincent'
   s.license      = 'MIT'
@@ -10,6 +10,5 @@ Pod::Spec.new do |s|
   s.ios.deployment_target = '8.0'
   s.source       = { :git => 'https://github.com/cbot/Vincent.git', :tag => s.version.to_s }
   s.source_files  = 'Classes/*'
-  
-  s.dependency 'CryptoSwift', '~> 0.0.13'
+  s.dependency 'MD5Digest'
 end
