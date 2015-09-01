@@ -8,7 +8,7 @@ import MD5Digest
 
 public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
 
-public enum CacheType {
+@objc public enum CacheType: Int {
     case Automatic     // if a non stale image is contained in the cache, it is used. otherwise Protocol cache type is used
     case ForceCache    // if the image is contained in the cache (no matter how old), it is used. otherwise Protocol cache type is used
     case ForceDownload // ALWAYS creates a download task, ignores any cache headers from the server
@@ -16,39 +16,34 @@ public enum CacheType {
 }
 
 @objc public class Vincent : NSObject {
-    public class var sharedInstance: Vincent {
-        struct Singleton {
-            static let instance = Vincent(identifier: "shared-downloader")
-        }
-        return Singleton.instance
-    }
+    public static let sharedInstance = Vincent(identifier: "shared-downloader")
     
     public lazy var prefetcher: Prefetcher = Prefetcher(vincent: self)
 
-    var useDiskCache = true
-    var timeoutInterval = 30.0
-    var cacheInvalidationTimeout : NSTimeInterval = 1 * 24 * 3600
-    var memoryCacheSize : Int = 64 * 1024 * 1024 {
+    public var useDiskCache = true
+    public var timeoutInterval = 30.0
+    public var cacheInvalidationTimeout : NSTimeInterval = 1 * 24 * 3600
+    public var memoryCacheSize : Int = 64 * 1024 * 1024 {
         willSet {
             memoryCache.totalCostLimit = newValue
         }
     }
 
-    private(set) var diskCacheFolderUrl : NSURL
-    private lazy var urlSession : NSURLSession = {
+    private(set) var diskCacheFolderUrl: NSURL
+    private lazy var urlSession: NSURLSession = {
         let configuration =  NSURLSessionConfiguration.defaultSessionConfiguration()
         configuration.HTTPMaximumConnectionsPerHost = 10
         configuration.HTTPShouldUsePipelining = true
        return NSURLSession(configuration: configuration, delegate: nil, delegateQueue: nil)
     }()
     
-    private lazy var memoryCache : NSCache = {
+    private lazy var memoryCache: NSCache = {
         var cache = NSCache()
         cache.totalCostLimit = self.memoryCacheSize
         return cache
     }()
     
-    private lazy var keyCache : NSCache = {
+    private lazy var keyCache: NSCache = {
         var cache = NSCache()
         cache.countLimit = 512
         return cache
@@ -70,7 +65,7 @@ public enum CacheType {
             print("Vincent: unable to create disk cache folder: \(error)")
         }
         super.init()
-        NSNotificationCenter .defaultCenter().addObserver(self, selector: "appWillResignActive:", name: UIApplicationWillResignActiveNotification, object: nil)
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: "appWillResignActive:", name: UIApplicationWillResignActiveNotification, object: nil)
     }
     
     // MARK: - Public methods

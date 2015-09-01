@@ -5,7 +5,7 @@
 
 import Foundation
 
-public class Prefetcher {
+@objc public class Prefetcher: NSObject {
     private weak var vincent: Vincent?
     private let queue: NSOperationQueue
     public var maxConcurrentOperationCount: Int = 4 {
@@ -79,7 +79,6 @@ class PrefetchOperation: NSOperation {
     private var downloadSemaphore = dispatch_semaphore_create(0)
     private var completionClosuresSemaphore = dispatch_semaphore_create(1)
     var closuresCalled = false
-    
     
     init(url: NSURL, prefetcher: Prefetcher) {
         self.url = url
