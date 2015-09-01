@@ -6,6 +6,8 @@
 import UIKit
 import MD5Digest
 
+public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
+
 public enum CacheType {
     case Automatic     // if a non stale image is contained in the cache, it is used. otherwise Protocol cache type is used
     case ForceCache    // if the image is contained in the cache (no matter how old), it is used. otherwise Protocol cache type is used
@@ -20,6 +22,8 @@ public enum CacheType {
         }
         return Singleton.instance
     }
+    
+    public lazy var prefetcher: Prefetcher = Prefetcher(vincent: self)
 
     var useDiskCache = true
     var timeoutInterval = 30.0
@@ -279,25 +283,19 @@ public enum CacheType {
     }
     
     private func saveCacheEntryToDisk(cacheEntry: VincentCacheEntry?, tempImageFile: NSURL?, forKey key: String?) {
-        if let key = key {
-            let url = diskCacheFolderUrl.URLByAppendingPathComponent(key, isDirectory: false)
-            
-            dispatch_semaphore_wait(self.diskCacheSemaphore, DISPATCH_TIME_FOREVER);
-            if let tempImageFile = tempImageFile { // store new image
-                do {
-                    try NSFileManager.defaultManager().moveItemAtURL(tempImageFile, toURL: url)
-                } catch {}
-            } else if let cacheEntry = cacheEntry { // update image access date
-                do {
-                    try url.setResourceValue(cacheEntry.lastAccessed, forKey: NSURLContentAccessDateKey)
-                } catch {}
-            } else { // delete image
-                do {
-                    try NSFileManager.defaultManager().removeItemAtURL(url)
-                } catch {}
-            }
-            dispatch_semaphore_signal(self.diskCacheSemaphore)
+        guard let key = key else {return}
+        
+        let url = diskCacheFolderUrl.URLByAppendingPathComponent(key, isDirectory: false)
+        
+        dispatch_semaphore_wait(self.diskCacheSemaphore, DISPATCH_TIME_FOREVER);
+        if let tempImageFile = tempImageFile { // store new image
+            _ = try? NSFileManager.defaultManager().moveItemAtURL(tempImageFile, toURL: url)
+        } else if let cacheEntry = cacheEntry { // update image access date
+            _ = try? url.setResourceValue(cacheEntry.lastAccessed, forKey: NSURLContentAccessDateKey)
+        } else { // delete image
+            _ = try? NSFileManager.defaultManager().removeItemAtURL(url)
         }
+        dispatch_semaphore_signal(self.diskCacheSemaphore)
     }
     
     // MARK: - Utility
@@ -339,27 +337,27 @@ public enum CacheType {
     
     private func cleanup() {
         self.memoryCache.removeAllObjects()
-        if let path = diskCacheFolderUrl.path {
-            do {
-                let filesArray = try NSFileManager.defaultManager().contentsOfDirectoryAtPath(path)
-                let now = NSDate()
-                for file in filesArray {
-                    let url : NSURL = diskCacheFolderUrl.URLByAppendingPathComponent(file, isDirectory: false)
-                    var lastAccess : AnyObject?
-                    do {
-                        try url.getResourceValue(&lastAccess, forKey: NSURLContentAccessDateKey)
-                        if let lastAccess = lastAccess as? NSDate {
-                            if (now.timeIntervalSinceDate(lastAccess) > 30 * 24 * 3600) {
-                                try NSFileManager.defaultManager().removeItemAtURL(url)
-                            }
+        guard let path = diskCacheFolderUrl.path else {return}
+        
+        do {
+            let filesArray = try NSFileManager.defaultManager().contentsOfDirectoryAtPath(path)
+            let now = NSDate()
+            for file in filesArray {
+                let url : NSURL = diskCacheFolderUrl.URLByAppendingPathComponent(file, isDirectory: false)
+                var lastAccess : AnyObject?
+                do {
+                    try url.getResourceValue(&lastAccess, forKey: NSURLContentAccessDateKey)
+                    if let lastAccess = lastAccess as? NSDate {
+                        if (now.timeIntervalSinceDate(lastAccess) > 30 * 24 * 3600) {
+                            try NSFileManager.defaultManager().removeItemAtURL(url)
                         }
-                    } catch {
-                        continue
                     }
-                    
+                } catch {
+                    continue
                 }
-            } catch {}
-        }
+                
+            }
+        } catch {}
     }
     
     // MARK: - Notifications

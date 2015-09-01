@@ -1,5 +1,5 @@
 //
-//  VincentUtils.swift
+//  Vincent-Utils.swift
 //
 //  Created by Kai Straßmann
 
@@ -22,7 +22,7 @@ public extension UIImageView {
         setImageWithString(urlString, placeHolder: nil, cacheType: .Automatic, completion: nil)
     }
     
-    func setImageWithString(urlString: String?, completion: ((error: NSError?, image: UIImage?) -> ())?) {
+    func setImageWithString(urlString: String?, completion: CompletionClosure?) {
         setImageWithString(urlString, placeHolder: nil, cacheType: .Automatic, completion: completion)
     }
     
@@ -30,11 +30,11 @@ public extension UIImageView {
         setImageWithString(urlString, placeHolder: placeHolder, cacheType: .Automatic, completion: nil)
     }
     
-    func setImageWithString(urlString: String?, placeHolder: UIImage?, completion: ((error: NSError?, image: UIImage?) -> ())?) {
+    func setImageWithString(urlString: String?, placeHolder: UIImage?, completion: CompletionClosure?) {
         setImageWithString(urlString, placeHolder: placeHolder, cacheType: .Automatic, completion: completion)
     }
 
-    func setImageWithString(urlString: String?, placeHolder: UIImage?, cacheType: CacheType, completion: ((error: NSError?, image: UIImage?) -> ())?) {
+    func setImageWithString(urlString: String?, placeHolder: UIImage?, cacheType: CacheType, completion: CompletionClosure?) {
         if let urlString = urlString {
             setImageWithUrl(NSURL(string: urlString), placeHolder: placeHolder, cacheType: cacheType, completion: completion)
         } else {
@@ -46,7 +46,7 @@ public extension UIImageView {
         setImageWithUrl(url, placeHolder: nil, cacheType: .Automatic, completion: nil)
     }
     
-    func setImageWithUrl(url: NSURL?, completion: ((error: NSError?, image: UIImage?) -> ())?) {
+    func setImageWithUrl(url: NSURL?, completion: CompletionClosure?) {
         setImageWithUrl(url, placeHolder: nil, cacheType: .Automatic, completion: completion)
     }
     
@@ -54,11 +54,11 @@ public extension UIImageView {
         setImageWithUrl(url, placeHolder: placeHolder, cacheType: .Automatic, completion: nil)
     }
     
-    func setImageWithUrl(url: NSURL?, placeHolder: UIImage?, completion: ((error: NSError?, image: UIImage?) -> ())?) {
+    func setImageWithUrl(url: NSURL?, placeHolder: UIImage?, completion: CompletionClosure?) {
         setImageWithUrl(url, placeHolder: placeHolder, cacheType: .Automatic, completion: completion)
     }
     
-    func setImageWithUrl(url: NSURL?, placeHolder: UIImage?, cacheType: CacheType, completion: ((error: NSError?, image: UIImage?) -> ())?) {
+    func setImageWithUrl(url: NSURL?, placeHolder: UIImage?, cacheType: CacheType, completion: CompletionClosure?) {
         let downloader = Vincent.sharedInstance
         downloader.invalidate(self.downloadTaskIdentifier)
         
@@ -68,22 +68,23 @@ public extension UIImageView {
             self.image = downloader.retrieveCachedImageForUrl(url)
         }
         
-        if let url = url {
-            self.downloadTaskIdentifier = Vincent.sharedInstance.downloadImageFromUrl(url, cacheType: cacheType, success: {[weak self] image in
-                self?.downloadTaskIdentifier = nil
-                dispatch_async(dispatch_get_main_queue(), { () -> Void in
-                    self?.image = image
-                    completion?(error: nil, image: image)
-                })
-                }, error: {[weak self] (error: NSError) -> () in
-                    if error.code != -999 {
-                        self?.downloadTaskIdentifier = nil
-                        dispatch_async(dispatch_get_main_queue(), { () -> Void in
-                            let _ = completion?(error: error, image: nil)
-                        })
-                    }
+        guard let url = url else {return}
+        
+        
+        self.downloadTaskIdentifier = Vincent.sharedInstance.downloadImageFromUrl(url, cacheType: cacheType, success: {[weak self] image in
+            self?.downloadTaskIdentifier = nil
+            dispatch_async(dispatch_get_main_queue(), {
+                self?.image = image
+                completion?(error: nil, image: image)
             })
-        }
+        }, error: {[weak self] error in
+            if error.code != -999 {
+                self?.downloadTaskIdentifier = nil
+                dispatch_async(dispatch_get_main_queue(), {
+                    completion?(error: error, image: nil)
+                })
+            }
+        })
     }
     
     func cancelImageDownload() {
@@ -111,7 +112,7 @@ public extension UIButton {
         setImageWithString(urlString, forState: state, placeHolder: nil, cacheType: .Automatic, completion: nil)
     }
     
-    func setImageWithString(urlString: String?, forState state: UIControlState, completion: ((error: NSError?, image: UIImage?) -> ())?) {
+    func setImageWithString(urlString: String?, forState state: UIControlState, completion: CompletionClosure?) {
         setImageWithString(urlString, forState: state, placeHolder: nil, cacheType: .Automatic, completion: completion)
     }
     
@@ -119,11 +120,11 @@ public extension UIButton {
         setImageWithString(urlString, forState: state, placeHolder: placeHolder, cacheType: .Automatic, completion: nil)
     }
     
-    func setImageWithString(urlString: String?, forState state: UIControlState, placeHolder: UIImage?, completion: ((error: NSError?, image: UIImage?) -> ())?) {
+    func setImageWithString(urlString: String?, forState state: UIControlState, placeHolder: UIImage?, completion: CompletionClosure?) {
         setImageWithString(urlString, forState: state, placeHolder: placeHolder, cacheType: .Automatic, completion: completion)
     }
     
-    func setImageWithString(urlString: String?, forState state: UIControlState, placeHolder: UIImage?, cacheType: CacheType, completion: ((error: NSError?, image: UIImage?) -> ())?) {
+    func setImageWithString(urlString: String?, forState state: UIControlState, placeHolder: UIImage?, cacheType: CacheType, completion: CompletionClosure?) {
         if let urlString = urlString {
             setImageWithUrl(NSURL(string: urlString), forState: state, placeHolder: placeHolder, cacheType: cacheType, completion: completion)
         } else {
@@ -135,7 +136,7 @@ public extension UIButton {
         setImageWithUrl(url, forState: state, placeHolder: nil, cacheType: .Automatic, completion: nil)
     }
     
-    func setImageWithUrl(url: NSURL?, forState state: UIControlState, completion: ((error: NSError?, image: UIImage?) -> ())?) {
+    func setImageWithUrl(url: NSURL?, forState state: UIControlState, completion: CompletionClosure?) {
         setImageWithUrl(url, forState: state, placeHolder: nil, cacheType: .Automatic, completion: completion)
     }
     
@@ -143,7 +144,7 @@ public extension UIButton {
         setImageWithUrl(url, forState: state, placeHolder: placeHolder, cacheType: .Automatic, completion: nil)
     }
     
-    func setImageWithUrl(url: NSURL?, forState state: UIControlState, placeHolder: UIImage?, completion: ((error: NSError?, image: UIImage?) -> ())?) {
+    func setImageWithUrl(url: NSURL?, forState state: UIControlState, placeHolder: UIImage?, completion: CompletionClosure?) {
         setImageWithUrl(url, forState: state, placeHolder: placeHolder, cacheType: .Automatic, completion: completion)
     }
     
@@ -157,22 +158,22 @@ public extension UIButton {
             setImage(downloader.retrieveCachedImageForUrl(url), forState: state)
         }
         
-        if let url = url {
-            self.downloadTaskIdentifier = Vincent.sharedInstance.downloadImageFromUrl(url, cacheType: cacheType, success: {[weak self] image in
+        guard let url = url else {return}
+        
+        self.downloadTaskIdentifier = Vincent.sharedInstance.downloadImageFromUrl(url, cacheType: cacheType, success: {[weak self] image in
+            self?.downloadTaskIdentifier = nil
+            dispatch_async(dispatch_get_main_queue(), {
+                self?.setImage(image, forState: state)
+                completion?(error: nil, image: image)
+            })
+        }, error: {[weak self] error in
+            if error.code != -999 {
                 self?.downloadTaskIdentifier = nil
-                dispatch_async(dispatch_get_main_queue(), { () -> Void in
-                    self?.setImage(image, forState: state)
-                    completion?(error: nil, image: image)
+                dispatch_async(dispatch_get_main_queue(), {
+                    completion?(error: error, image: nil)
                 })
-                }, error: {[weak self] (error: NSError) -> () in
-                    if error.code != -999 {
-                        self?.downloadTaskIdentifier = nil
-                        dispatch_async(dispatch_get_main_queue(), { () -> Void in
-                            completion?(error: error, image: nil)
-                        })
-                    }
-                })
-        }
+            }
+        })
     }
     
     func cancelImageDownload() {
