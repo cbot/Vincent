@@ -56,7 +56,9 @@ public enum CacheType {
     
     private var diskCacheSemaphore = dispatch_semaphore_create(1);
     private var runningDownloadsSemaphore = dispatch_semaphore_create(1);
-    private var runningDownloads : Dictionary<String, NSURLSessionDownloadTask> = Dictionary<String, NSURLSessionDownloadTask>()
+    private var runningDownloads = [String: NSURLSessionDownloadTask]()
+    private var requestHeaders = [String: String]()
+    private var credentials: NSURLCredential?
     
     // MARK: - Constructor
     public init(identifier: String) {
@@ -91,7 +93,19 @@ public enum CacheType {
         
         let uuid = NSUUID().UUIDString
         
-        let request : NSURLRequest = NSURLRequest(URL: url, cachePolicy: cacheType == .ForceDownload ? .ReloadIgnoringLocalCacheData : .UseProtocolCachePolicy, timeoutInterval: timeoutInterval)
+        let request = NSMutableURLRequest(URL: url, cachePolicy: cacheType == .ForceDownload ? .ReloadIgnoringLocalCacheData : .UseProtocolCachePolicy, timeoutInterval: timeoutInterval)
+        for (key, value) in requestHeaders {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        
+        if let credentials = credentials, user = credentials.user, password = credentials.password {
+            let userPasswordString = "\(user):\(password)"
+            let userPasswordData = userPasswordString.dataUsingEncoding(NSUTF8StringEncoding)
+            let base64EncodedCredential = userPasswordData!.base64EncodedStringWithOptions([])
+            let authString = "Basic \(base64EncodedCredential)"
+            request.setValue(authString, forHTTPHeaderField: "Authorization")
+        }
+        
         let downloadTask = urlSession.downloadTaskWithRequest(request) {[weak self] (tmpImageUrl, response, error) -> Void in
             if let this = self {
                 let taskInvalidated = self?.runningDownloads[uuid] == nil
@@ -132,6 +146,14 @@ public enum CacheType {
         dispatch_semaphore_signal(self.runningDownloadsSemaphore)
         downloadTask.resume()
         return uuid
+    }
+    
+    public func setHeaderValue(value: String?, forHeaderWithName name: String) {
+        requestHeaders[name] = value
+    }
+    
+    public func setBasicAuthCredentials(user user: String, password: String) {
+        credentials = NSURLCredential(user: user, password: password, persistence: .None)
     }
     
     public func storeImage(imageData: NSData?, forUrl url: NSURL?) {
