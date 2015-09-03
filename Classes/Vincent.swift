@@ -117,7 +117,7 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
                     }
 
                     do {
-                        try this.validateResponse(response as! NSHTTPURLResponse)
+                        try this.validateResponse(response)
                         
                         image = UIImage(data: NSData(contentsOfFile: tmpImageUrl.path!)!)
                         if let image = image {
@@ -317,7 +317,11 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
     }
     
     // MARK: - Utility
-    private func validateResponse(response: NSHTTPURLResponse) throws {
+    private func validateResponse(response: NSURLResponse?) throws {
+        guard let response = response as? NSHTTPURLResponse else {
+            throw NSError(domain: "Vincent", code: 1, userInfo: [NSLocalizedDescriptionKey: "unexpected response"])
+        }
+        
         if response.statusCode >= 400 {
             throw NSError(domain: "Vincent", code: response.statusCode, userInfo: [NSLocalizedDescriptionKey: NSHTTPURLResponse.localizedStringForStatusCode(response.statusCode)])
         }
