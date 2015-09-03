@@ -20,6 +20,7 @@ import Foundation
         self.vincent = vincent
         queue = NSOperationQueue()
         queue.maxConcurrentOperationCount = maxConcurrentOperationCount
+        super.init()
     }
     
     public func fetchWithString(stringUrl: String?) {

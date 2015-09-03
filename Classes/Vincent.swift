@@ -101,13 +101,14 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
             request.setValue(authString, forHTTPHeaderField: "Authorization")
         }
         
-        let downloadTask = urlSession.downloadTaskWithRequest(request) {[weak self] (tmpImageUrl, response, error) -> Void in
+        let downloadTask = urlSession.downloadTaskWithRequest(request) {[weak self] tmpImageUrl, response, error in
             if let this = self {
                 let taskInvalidated = self?.runningDownloads[uuid] == nil
+                this.invalidate(uuid)
                 
-                if error != nil {
+                if let error = error {
                     if (!taskInvalidated) {
-                        errorBlock?(error: error!)
+                        errorBlock?(error: error)
                     }
                 } else {
                     guard let tmpImageUrl = tmpImageUrl else {
