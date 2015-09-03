@@ -88,59 +88,69 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
         
         let uuid = NSUUID().UUIDString
         
-        let request = NSMutableURLRequest(URL: url, cachePolicy: cacheType == .ForceDownload ? .ReloadIgnoringLocalCacheData : .UseProtocolCachePolicy, timeoutInterval: timeoutInterval)
-        for (key, value) in requestHeaders {
-            request.setValue(value, forHTTPHeaderField: key)
-        }
-        
-        if let credentials = credentials, user = credentials.user, password = credentials.password {
-            let userPasswordString = "\(user):\(password)"
-            let userPasswordData = userPasswordString.dataUsingEncoding(NSUTF8StringEncoding)
-            let base64EncodedCredential = userPasswordData!.base64EncodedStringWithOptions([])
-            let authString = "Basic \(base64EncodedCredential)"
-            request.setValue(authString, forHTTPHeaderField: "Authorization")
-        }
-        
-        let downloadTask = urlSession.downloadTaskWithRequest(request) {[weak self] tmpImageUrl, response, error in
-            if let this = self {
-                let taskInvalidated = self?.runningDownloads[uuid] == nil
-                this.invalidate(uuid)
-                
-                if let error = error {
-                    if (!taskInvalidated) {
-                        errorBlock?(error: error)
-                    }
-                } else {
-                    guard let tmpImageUrl = tmpImageUrl else {
-                        errorBlock?(error: error ?? NSError(domain: "Vincent", code: -3, userInfo: [NSLocalizedDescriptionKey: "download error"]))
-                        return
-                    }
-
-                    do {
-                        try this.validateResponse(response)
-                        
-                        image = UIImage(data: NSData(contentsOfFile: tmpImageUrl.path!)!)
-                        if let image = image {
-                            this.cacheImage(image, key: cacheKey, tempImageFile: tmpImageUrl)
-                            if (!taskInvalidated) {
-                                successBlock?(image: image)
-                            }
-                        } else if (!taskInvalidated) {
-                            errorBlock?(error: NSError(domain: "Vincent", code: -2, userInfo:[NSLocalizedDescriptionKey: "unable to decode image"]))
-                        }
-                    } catch let error {
+        if url.fileURL {
+            if let data = NSData(contentsOfURL: url), image = UIImage(data: data) {
+                cacheImage(image, key: cacheKey, tempImageFile: url)
+                successBlock?(image: image)
+            } else {
+                errorBlock?(error: NSError(domain: "Vincent", code: -6, userInfo: [NSLocalizedDescriptionKey: "unable to load image from file url"]))
+            }
+        } else {
+            let request = NSMutableURLRequest(URL: url, cachePolicy: cacheType == .ForceDownload ? .ReloadIgnoringLocalCacheData : .UseProtocolCachePolicy, timeoutInterval: timeoutInterval)
+            for (key, value) in requestHeaders {
+                request.setValue(value, forHTTPHeaderField: key)
+            }
+            
+            if let credentials = credentials, user = credentials.user, password = credentials.password {
+                let userPasswordString = "\(user):\(password)"
+                let userPasswordData = userPasswordString.dataUsingEncoding(NSUTF8StringEncoding)
+                let base64EncodedCredential = userPasswordData!.base64EncodedStringWithOptions([])
+                let authString = "Basic \(base64EncodedCredential)"
+                request.setValue(authString, forHTTPHeaderField: "Authorization")
+            }
+            
+            let downloadTask = urlSession.downloadTaskWithRequest(request) {[weak self] tmpImageUrl, response, error in
+                if let this = self {
+                    let taskInvalidated = self?.runningDownloads[uuid] == nil
+                    this.invalidate(uuid)
+                    
+                    if let error = error {
                         if (!taskInvalidated) {
-                            errorBlock?(error: error as NSError)
+                            errorBlock?(error: error)
+                        }
+                    } else {
+                        guard let tmpImageUrl = tmpImageUrl else {
+                            errorBlock?(error: error ?? NSError(domain: "Vincent", code: -3, userInfo: [NSLocalizedDescriptionKey: "download error"]))
+                            return
+                        }
+                        
+                        do {
+                            try this.validateResponse(response)
+                            
+                            image = UIImage(data: NSData(contentsOfFile: tmpImageUrl.path!)!)
+                            if let image = image {
+                                this.cacheImage(image, key: cacheKey, tempImageFile: tmpImageUrl)
+                                if (!taskInvalidated) {
+                                    successBlock?(image: image)
+                                }
+                            } else if (!taskInvalidated) {
+                                errorBlock?(error: NSError(domain: "Vincent", code: -2, userInfo:[NSLocalizedDescriptionKey: "unable to decode image"]))
+                            }
+                        } catch let error {
+                            if (!taskInvalidated) {
+                                errorBlock?(error: error as NSError)
+                            }
                         }
                     }
                 }
             }
+            
+            dispatch_semaphore_wait(self.runningDownloadsSemaphore, DISPATCH_TIME_FOREVER)
+            runningDownloads[uuid] = downloadTask
+            dispatch_semaphore_signal(self.runningDownloadsSemaphore)
+            downloadTask.resume()
         }
         
-        dispatch_semaphore_wait(self.runningDownloadsSemaphore, DISPATCH_TIME_FOREVER)
-        runningDownloads[uuid] = downloadTask
-        dispatch_semaphore_signal(self.runningDownloadsSemaphore)
-        downloadTask.resume()
         return uuid
     }
     
