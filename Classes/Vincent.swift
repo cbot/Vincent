@@ -90,7 +90,7 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
         
         if url.fileURL {
             if let data = NSData(contentsOfURL: url), image = UIImage(data: data) {
-                cacheImage(image, key: cacheKey, tempImageFile: url)
+                cacheImage(image, key: cacheKey, tempImageFile: url, memCacheOnly: true)
                 successBlock?(image: image)
             } else {
                 errorBlock?(error: NSError(domain: "Vincent", code: -6, userInfo: [NSLocalizedDescriptionKey: "unable to load image from file url"]))
@@ -129,7 +129,7 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
                             
                             image = UIImage(data: NSData(contentsOfFile: tmpImageUrl.path!)!)
                             if let image = image {
-                                this.cacheImage(image, key: cacheKey, tempImageFile: tmpImageUrl)
+                                this.cacheImage(image, key: cacheKey, tempImageFile: tmpImageUrl, memCacheOnly: false)
                                 if (!taskInvalidated) {
                                     successBlock?(image: image)
                                 }
@@ -171,7 +171,7 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
     
     public func storeImage(imageData: NSData?, forKey key: String?) {
         if let cacheKey = key, imageData = imageData, image = UIImage(data: imageData), tmpUrl = tmpFileWithData(imageData) {
-            cacheImage(image, key: cacheKey, tempImageFile: tmpUrl)
+            cacheImage(image, key: cacheKey, tempImageFile: tmpUrl, memCacheOnly: false)
         }
     }
     
@@ -216,7 +216,7 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
     }
     
     // MARK: - Caching
-    private func cacheImage(image: UIImage, key: String, tempImageFile: NSURL) {
+    private func cacheImage(image: UIImage, key: String, tempImageFile: NSURL, memCacheOnly: Bool) {
         var fileSize: Int
         do {
             let attributes = try NSFileManager.defaultManager().attributesOfItemAtPath(tempImageFile.path!)
@@ -231,7 +231,7 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
         memoryCache.setObject(cacheEntry, forKey: key, cost: fileSize)
         
         // disk cache
-        if useDiskCache {
+        if useDiskCache && !memCacheOnly {
             saveCacheEntryToDisk(cacheEntry, tempImageFile: tempImageFile, forKey: key)
         }
     }
@@ -317,6 +317,8 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
         
         dispatch_semaphore_wait(self.diskCacheSemaphore, DISPATCH_TIME_FOREVER);
         if let tempImageFile = tempImageFile { // store new image
+            
+            
             _ = try? NSFileManager.defaultManager().moveItemAtURL(tempImageFile, toURL: url)
         } else if let cacheEntry = cacheEntry { // update image access date
             _ = try? url.setResourceValue(cacheEntry.lastAccessed, forKey: NSURLContentAccessDateKey)
