@@ -68,8 +68,8 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
         NSNotificationCenter.defaultCenter().addObserver(self, selector: "appWillResignActive:", name: UIApplicationWillResignActiveNotification, object: nil)
     }
     
-    // MARK: - Public methods
-    public func downloadImageFromUrl(url: NSURL, cacheType: CacheType, success successBlock: ((image: UIImage) -> ())?, error errorBlock: ((error: NSError) -> ())?) -> String? {
+    // MARK: - Public methods    
+    public func downloadImageFromUrl(url: NSURL, cacheType: CacheType, success successBlock: ((image: UIImage) -> ())?, error errorBlock: ((error: NSError) -> ())?, requestDone requestDoneBlock: (() -> ())? = nil) -> String? {
         var image : UIImage?
         let cacheKey = transformUrlToCacheKey(url.absoluteString)
         
@@ -82,6 +82,7 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
         }
                 
         if image != nil {
+            requestDoneBlock?()
             successBlock?(image: image!)
             return nil;
         }
@@ -91,8 +92,10 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
         if url.fileURL {
             if let data = NSData(contentsOfURL: url), image = UIImage(data: data) {
                 cacheImage(image, key: cacheKey, tempImageFile: url, memCacheOnly: true)
+                requestDoneBlock?()
                 successBlock?(image: image)
             } else {
+                requestDoneBlock?()
                 errorBlock?(error: NSError(domain: "Vincent", code: -6, userInfo: [NSLocalizedDescriptionKey: "unable to load image from file url"]))
             }
         } else {
@@ -111,6 +114,8 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
             
             let downloadTask = urlSession.downloadTaskWithRequest(request) {[weak self] tmpImageUrl, response, error in
                 if let this = self {
+                    requestDoneBlock?()
+                    
                     let taskInvalidated = self?.runningDownloads[uuid] == nil
                     this.invalidate(uuid)
                     
@@ -318,8 +323,7 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
         dispatch_semaphore_wait(self.diskCacheSemaphore, DISPATCH_TIME_FOREVER);
         if let tempImageFile = tempImageFile { // store new image
             
-            
-            _ = try? NSFileManager.defaultManager().moveItemAtURL(tempImageFile, toURL: url)
+        _ = try? NSFileManager.defaultManager().moveItemAtURL(tempImageFile, toURL: url)
         } else if let cacheEntry = cacheEntry { // update image access date
             _ = try? url.setResourceValue(cacheEntry.lastAccessed, forKey: NSURLContentAccessDateKey)
         } else { // delete image
@@ -406,7 +410,7 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
     }
 }
 
-// MARK: -
+// MARK: - VincentCacheEntry
 class VincentCacheEntry: NSObject {
     var image : UIImage
     var lastAccessed : NSDate

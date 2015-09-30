@@ -7,14 +7,31 @@ import UIKit
 import ObjectiveC
 
 private var downloadTaskKey: UInt8 = 0
+private var numRequestsKey: UInt8 = 0
 
 public extension UIImageView {
     var downloadTaskIdentifier: String? {
         get {
-            return objc_getAssociatedObject(self, &downloadTaskKey) as! String?
+            return objc_getAssociatedObject(self, &downloadTaskKey) as? String
         }
         set(newValue) {
             objc_setAssociatedObject(self, &downloadTaskKey, newValue, objc_AssociationPolicy.OBJC_ASSOCIATION_RETAIN)
+        }
+    }
+    
+    var numRequests: Int {
+        get {
+            return objc_getAssociatedObject(self, &numRequestsKey) as? Int ?? 0
+        }
+        set(newValue) {
+            objc_setAssociatedObject(self, &numRequestsKey, newValue, objc_AssociationPolicy.OBJC_ASSOCIATION_RETAIN)
+            if let vincentImageView = self as? VincentImageView {
+                if newValue > 0 && vincentImageView.showsSpinner {
+                    vincentImageView.activityIndicator.startAnimating()
+                } else {
+                    vincentImageView.activityIndicator.stopAnimating()
+                }
+            }
         }
     }
     
@@ -70,9 +87,8 @@ public extension UIImageView {
         
         guard let url = url else {return}
         
-        if let vincentImageView = self as? VincentImageView where vincentImageView.showsSpinner {
-            vincentImageView.activityIndicator.startAnimating()
-        }
+        numRequests++
+        
         self.downloadTaskIdentifier = Vincent.sharedInstance.downloadImageFromUrl(url, cacheType: cacheType, success: {[weak self] image in
             self?.downloadTaskIdentifier = nil
             dispatch_async(dispatch_get_main_queue(), {
@@ -86,11 +102,14 @@ public extension UIImageView {
             if error.code != -999 {
                 self?.downloadTaskIdentifier = nil
                 dispatch_async(dispatch_get_main_queue(), {
-                    if let vincentImageView = self as? VincentImageView where vincentImageView.showsSpinner {
-                        vincentImageView.activityIndicator.stopAnimating()
-                    }
                     completion?(error: error, image: nil)
                 })
+            }
+        }, requestDone: {
+            dispatch_async(dispatch_get_main_queue()) {
+                if let vincentImageView = self as? VincentImageView where vincentImageView.showsSpinner {
+                    self.numRequests--
+                }
             }
         })
     }
