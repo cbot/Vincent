@@ -245,6 +245,12 @@ public class VincentImageView: UIImageView {
         }
     }
     
+    @IBInspectable public var spinnerCornerRadius: CGFloat = 0.0 {
+        didSet {
+            activityIndicator.layer.cornerRadius = spinnerCornerRadius
+        }
+    }
+    
     public private(set) var activityIndicator = ActivityIndicatorView()
     private var spinnerHeightConstraint: NSLayoutConstraint? = nil
     private var spinnerWidthConstraint: NSLayoutConstraint? = nil
@@ -349,7 +355,7 @@ public class ActivityIndicatorView: UIView {
         let startAngle = CGFloat(0.75 * twoPi)
         let endAngle = CGFloat(startAngle + CGFloat(twoPi * 0.9))
         let width = bounds.width
-        return UIBezierPath(arcCenter: CGPoint(x: width / 2.0, y: width / 2.0), radius: width / 2.2, startAngle: startAngle, endAngle: endAngle, clockwise: true)
+        return UIBezierPath(arcCenter: CGPoint(x: width / 2.0, y: width / 2.0), radius: (width - 6) / 2.2, startAngle: startAngle, endAngle: endAngle, clockwise: true)
     }
     
     public func startAnimating() {
