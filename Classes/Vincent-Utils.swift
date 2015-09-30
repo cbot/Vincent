@@ -26,7 +26,7 @@ public extension UIImageView {
         set(newValue) {
             objc_setAssociatedObject(self, &numRequestsKey, newValue, objc_AssociationPolicy.OBJC_ASSOCIATION_RETAIN)
             if let vincentImageView = self as? VincentImageView {
-                if newValue > 0 && vincentImageView.showsSpinner {
+                if newValue > 0 && vincentImageView.showsSpinner && (vincentImageView.showsSpinnerOnPlaceholder || vincentImageView.image == nil) {
                     vincentImageView.activityIndicator.startAnimating()
                 } else {
                     vincentImageView.activityIndicator.stopAnimating()
@@ -216,6 +216,7 @@ public extension UIButton {
 
 public class VincentImageView: UIImageView {
     @IBInspectable public var showsSpinner: Bool = true
+    @IBInspectable public var showsSpinnerOnPlaceholder: Bool = false
     @IBInspectable public var spinnerSize: CGFloat = 50.0 {
         didSet {
             spinnerHeightConstraint?.constant = spinnerSize
@@ -359,13 +360,15 @@ public class ActivityIndicatorView: UIView {
     }
     
     public func startAnimating() {
-        isAnimating = true
-        let animation = CABasicAnimation(keyPath: "transform.rotation")
-        animation.toValue = 2 * M_PI
-        animation.timingFunction = CAMediaTimingFunction(name: kCAMediaTimingFunctionLinear)
-        animation.duration = 1.0
-        animation.repeatCount = Float.infinity
-        shapeLayer?.addAnimation(animation, forKey: "spinner")
+        if !isAnimating {
+            isAnimating = true
+            let animation = CABasicAnimation(keyPath: "transform.rotation")
+            animation.toValue = 2 * M_PI
+            animation.timingFunction = CAMediaTimingFunction(name: kCAMediaTimingFunctionLinear)
+            animation.duration = 1.0
+            animation.repeatCount = Float.infinity
+            shapeLayer?.addAnimation(animation, forKey: "spinner")
+        }
         hidden = false
     }
     
