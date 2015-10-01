@@ -360,8 +360,7 @@ public class ActivityIndicatorView: UIView {
     }
     
     public func startAnimating() {
-        if !isAnimating {
-            isAnimating = true
+        if shapeLayer?.animationForKey("spinner") == nil {
             let animation = CABasicAnimation(keyPath: "transform.rotation")
             animation.toValue = 2 * M_PI
             animation.timingFunction = CAMediaTimingFunction(name: kCAMediaTimingFunctionLinear)
@@ -369,6 +368,7 @@ public class ActivityIndicatorView: UIView {
             animation.repeatCount = Float.infinity
             shapeLayer?.addAnimation(animation, forKey: "spinner")
         }
+        isAnimating = true
         hidden = false
     }
     
