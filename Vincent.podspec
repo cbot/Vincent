@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = 'Vincent'
-  s.version      = '1.0.2'
+  s.version      = '1.1.0-beta'
   s.summary      = 'A small library that makes it easy to download and display remote images.'
   s.homepage     = 'https://github.com/cbot/Vincent'
   s.license      = 'MIT'

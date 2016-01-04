@@ -20,6 +20,7 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
     
     public lazy var prefetcher: Prefetcher = Prefetcher(vincent: self)
 
+    public var trustAllCertificates = false
     public var useDiskCache = true
     public var timeoutInterval = 30.0
     public var cacheInvalidationTimeout : NSTimeInterval = 1 * 24 * 3600
@@ -29,13 +30,8 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
         }
     }
 
+    private var downloader = VincentDowloader()
     private(set) var diskCacheFolderUrl: NSURL
-    private lazy var urlSession: NSURLSession = {
-        let configuration =  NSURLSessionConfiguration.defaultSessionConfiguration()
-        configuration.HTTPMaximumConnectionsPerHost = 10
-        configuration.HTTPShouldUsePipelining = true
-       return NSURLSession(configuration: configuration, delegate: nil, delegateQueue: nil)
-    }()
     
     private lazy var memoryCache: NSCache = {
         var cache = NSCache()
@@ -50,8 +46,6 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
     }()
     
     private var diskCacheSemaphore = dispatch_semaphore_create(1);
-    private var runningDownloadsSemaphore = dispatch_semaphore_create(1);
-    private var runningDownloads = [String: NSURLSessionDownloadTask]()
     private var requestHeaders = [String: String]()
     private var credentials: NSURLCredential?
     
@@ -87,8 +81,6 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
             return nil;
         }
         
-        let uuid = NSUUID().UUIDString
-        
         if url.fileURL {
             if let data = NSData(contentsOfURL: url), image = UIImage(data: data) {
                 cacheImage(image, key: cacheKey, tempImageFile: url, memCacheOnly: true)
@@ -98,29 +90,30 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
                 requestDoneBlock?()
                 errorBlock?(error: NSError(domain: "Vincent", code: -6, userInfo: [NSLocalizedDescriptionKey: "unable to load image from file url"]))
             }
+            return nil
         } else {
-            let request = NSMutableURLRequest(URL: url, cachePolicy: cacheType == .ForceDownload ? .ReloadIgnoringLocalCacheData : .UseProtocolCachePolicy, timeoutInterval: timeoutInterval)
+            let request = downloader.request(url, cachePolicy: cacheType == .ForceDownload ? .ReloadIgnoringLocalCacheData : .UseProtocolCachePolicy, timeoutInterval: timeoutInterval)
+            
             for (key, value) in requestHeaders {
-                request.setValue(value, forHTTPHeaderField: key)
+                request.header(key, withValue: value)
             }
             
             if let credentials = credentials, user = credentials.user, password = credentials.password {
-                let userPasswordString = "\(user):\(password)"
-                let userPasswordData = userPasswordString.dataUsingEncoding(NSUTF8StringEncoding)
-                let base64EncodedCredential = userPasswordData!.base64EncodedStringWithOptions([])
-                let authString = "Basic \(base64EncodedCredential)"
-                request.setValue(authString, forHTTPHeaderField: "Authorization")
+                request.credentials(user: user, password: password)
             }
             
-            let downloadTask = urlSession.downloadTaskWithRequest(request) {[weak self] tmpImageUrl, response, error in
+            if trustAllCertificates {
+                request.trustAllCertificates()
+            }
+            
+            request.completion { [weak self] tmpImageUrl, error, invalidated in
                 if let this = self {
                     requestDoneBlock?()
                     
-                    let taskInvalidated = self?.runningDownloads[uuid] == nil
-                    this.invalidate(uuid)
-                    
                     if let error = error {
-                        if (!taskInvalidated) {
+                        if error.code == -999 { // cancelled request
+                            return
+                        } else {
                             errorBlock?(error: error)
                         }
                     } else {
@@ -129,34 +122,22 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
                             return
                         }
                         
-                        do {
-                            try this.validateResponse(response)
-                            
-                            image = UIImage(data: NSData(contentsOfFile: tmpImageUrl.path!)!)
-                            if let image = image {
-                                this.cacheImage(image, key: cacheKey, tempImageFile: tmpImageUrl, memCacheOnly: false)
-                                if (!taskInvalidated) {
-                                    successBlock?(image: image)
-                                }
-                            } else if (!taskInvalidated) {
-                                errorBlock?(error: NSError(domain: "Vincent", code: -2, userInfo:[NSLocalizedDescriptionKey: "unable to decode image"]))
+                        image = UIImage(data: NSData(contentsOfURL: tmpImageUrl)!)
+                        if let image = image {
+                            this.cacheImage(image, key: cacheKey, tempImageFile: tmpImageUrl, memCacheOnly: false)
+                            if (!invalidated) {
+                                successBlock?(image: image)
                             }
-                        } catch let error {
-                            if (!taskInvalidated) {
-                                errorBlock?(error: error as NSError)
-                            }
+                        } else if (!invalidated) {
+                            errorBlock?(error: NSError(domain: "Vincent", code: -2, userInfo:[NSLocalizedDescriptionKey: "unable to decode image"]))
                         }
                     }
                 }
             }
             
-            dispatch_semaphore_wait(self.runningDownloadsSemaphore, DISPATCH_TIME_FOREVER)
-            runningDownloads[uuid] = downloadTask
-            dispatch_semaphore_signal(self.runningDownloadsSemaphore)
-            downloadTask.resume()
+            downloader.executeRequest(request)
+            return request.identifier
         }
-        
-        return uuid
     }
     
     public func setHeaderValue(value: String?, forHeaderWithName name: String) {
@@ -204,19 +185,13 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
     
     public func invalidate(downloadIdentifier: String?) {
         if let downloadIdentifier = downloadIdentifier {
-            dispatch_semaphore_wait(self.runningDownloadsSemaphore, DISPATCH_TIME_FOREVER)
-            runningDownloads.removeValueForKey(downloadIdentifier)
-            dispatch_semaphore_signal(self.runningDownloadsSemaphore)
+            downloader.invalidateRequest(downloadIdentifier)
         }
     }
     
     public func cancel(downloadIdentifier: String?) {
         if let downloadIdentifier = downloadIdentifier {
-            dispatch_semaphore_wait(self.runningDownloadsSemaphore, DISPATCH_TIME_FOREVER)
-            let task = runningDownloads[downloadIdentifier]
-            dispatch_semaphore_signal(self.runningDownloadsSemaphore)
-            task?.cancel()
-            invalidate(downloadIdentifier)
+            downloader.cancelRequest(downloadIdentifier)
         }
     }
     
