@@ -135,7 +135,9 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
                                 successBlock?(image: image)
                             }
                         } else if (!invalidated) {
-                            errorBlock?(error: NSError(domain: "Vincent", code: -2, userInfo:[NSLocalizedDescriptionKey: "unable to decode image"]))
+                            let error = NSError(domain: "Vincent", code: -2, userInfo:[NSLocalizedDescriptionKey: "unable to decode image"])
+                            print(error)
+                            errorBlock?(error: error)
                         }
                     }
                 }

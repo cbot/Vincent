@@ -100,7 +100,6 @@ public extension UIImageView {
             })
         }, error: {[weak self] error in
             if error.code != -999 {
-                print(error)
                 self?.downloadTaskIdentifier = nil
                 dispatch_async(dispatch_get_main_queue(), {
                     completion?(error: error, image: nil)
