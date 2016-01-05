@@ -123,12 +123,12 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
                             errorBlock?(error: error)
                         }
                     } else {
-                        guard let tmpImageUrl = tmpImageUrl else {
+                        guard let tmpImageUrl = tmpImageUrl, data = NSData(contentsOfURL: tmpImageUrl) else {
                             errorBlock?(error: error ?? NSError(domain: "Vincent", code: -3, userInfo: [NSLocalizedDescriptionKey: "download error"]))
                             return
                         }
                         
-                        image = UIImage(data: NSData(contentsOfURL: tmpImageUrl)!)
+                        image = UIImage(data: data)
                         if let image = image {
                             this.cacheImage(image, key: cacheKey, tempImageFile: tmpImageUrl, memCacheOnly: false)
                             if (!invalidated) {

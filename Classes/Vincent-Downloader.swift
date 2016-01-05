@@ -111,9 +111,16 @@ class VincentDowloader: NSObject, NSURLSessionDelegate, NSURLSessionTaskDelegate
     
     // MARK: - NSURLSessionDownloadDelegate
     func URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didFinishDownloadingToURL location: NSURL) {
-        if let request = requestForIdentifier(downloadTask.taskDescription) {
+        if let request = requestForIdentifier(downloadTask.taskDescription), response = downloadTask.response as? NSHTTPURLResponse {
+            
             registeredRequests.removeValueForKey(request.identifier)
-            request.handleFinishedDownload(location)
+    
+            if response.statusCode < 200 || response.statusCode >= 300 {
+                let customError = NSError(domain: "Vincent", code: response.statusCode, userInfo: [NSLocalizedDescriptionKey: "Status Code \(response.statusCode)"])
+                request.handleError(customError)
+            } else {
+                request.handleFinishedDownload(location)
+            }
         }
     }
     
@@ -121,18 +128,10 @@ class VincentDowloader: NSObject, NSURLSessionDelegate, NSURLSessionTaskDelegate
     func URLSession(session: NSURLSession, task: NSURLSessionTask, didCompleteWithError error: NSError?) {
         // only connection errors are handled here!
         if let request = requestForIdentifier(task.taskDescription) {
-            registeredRequests.removeValueForKey(request.identifier)
-            let response = task.response as? NSHTTPURLResponse ?? NSHTTPURLResponse()
-            
-            if let error = error where error.code == -999 { // cancelled request
-                return
-            }
             
             if let error = error {
+                registeredRequests.removeValueForKey(request.identifier)
                 request.handleError(error)
-            } else if response.statusCode < 200 || response.statusCode >= 300 {
-                let customError = NSError(domain: "Silk", code: response.statusCode, userInfo: [NSLocalizedDescriptionKey: "Status Code \(response.statusCode)"])
-                request.handleError(customError)
             }
         }
     }
