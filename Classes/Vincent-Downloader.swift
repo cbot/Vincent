@@ -23,6 +23,7 @@ class Request {
         self.request.HTTPMethod = "GET"
     }
     
+    // MARK: - Public Methods
     func method(method: String) -> Request {
         request.HTTPMethod = method
         return self
@@ -52,7 +53,8 @@ class Request {
         return self
     }
     
-    func handleFinishedDownload(url: NSURL) {
+    // MARK: - Private methods
+    private func handleFinishedDownload(url: NSURL) {
         if let completionClosure = completionClosure {
             dispatch_sync(dispatch_get_main_queue()) {
                 completionClosure(url: url, error: nil, invalidated: self.invalidated)
@@ -60,7 +62,7 @@ class Request {
         }
     }
     
-    func handleError(error: NSError) {
+    private func handleError(error: NSError) {
         print(error)
         if let completionClosure = completionClosure {
             dispatch_sync(dispatch_get_main_queue()) {
@@ -69,6 +71,8 @@ class Request {
         }
     }
 }
+
+// MARK: -
 
 class VincentDowloader: NSObject, NSURLSessionDelegate, NSURLSessionTaskDelegate, NSURLSessionDataDelegate, NSURLSessionDownloadDelegate {
     private var registeredRequests = [String: Request]()

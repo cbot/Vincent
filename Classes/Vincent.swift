@@ -20,7 +20,13 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
     
     public lazy var prefetcher: Prefetcher = Prefetcher(vincent: self)
 
-    public var trustAllCertificates = false
+    public var trustAllCertificates = false {
+        didSet {
+            if trustAllCertificates {
+                print("Vincent: WARNING! certificate validation is disabled!")
+            }
+        }
+    }
     public var useDiskCache = true
     public var timeoutInterval = 30.0
     public var cacheInvalidationTimeout : NSTimeInterval = 1 * 24 * 3600
