@@ -69,7 +69,7 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
     }
     
     // MARK: - Public methods    
-    public func downloadImageFromUrl(url: NSURL, cacheType: CacheType, success successBlock: ((image: UIImage) -> ())?, error errorBlock: ((error: NSError) -> ())?, requestDone requestDoneBlock: (() -> ())? = nil) -> String? {
+    public func downloadImageFromUrl(url: NSURL, cacheType: CacheType, callErrorOnCancel: Bool = false, success successBlock: ((image: UIImage) -> ())?, error errorBlock: ((error: NSError) -> ())?, requestDone requestDoneBlock: (() -> ())? = nil) -> String? {
         var image : UIImage?
         let cacheKey = transformUrlToCacheKey(url.absoluteString)
         
@@ -117,7 +117,7 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
                     requestDoneBlock?()
                     
                     if let error = error {
-                        if error.code == -999 { // cancelled request
+                        if error.code == -999 && !callErrorOnCancel { // cancelled request
                             return
                         } else {
                             errorBlock?(error: error)
