@@ -113,7 +113,7 @@ class PrefetchOperation: NSOperation {
                 dispatch_semaphore_wait(self.completionClosuresSemaphore, DISPATCH_TIME_FOREVER)
                 for completionClosure in self.completionClosures {
                     dispatch_sync(dispatch_get_main_queue()) {
-                        completionClosure(error: error, image: nil)
+                        completionClosure(image: nil, error: error)
                     }
                 }
                 self.closuresCalled = true
@@ -125,7 +125,7 @@ class PrefetchOperation: NSOperation {
             dispatch_semaphore_wait(self.completionClosuresSemaphore, DISPATCH_TIME_FOREVER)
             for completionClosure in self.completionClosures {
                 dispatch_sync(dispatch_get_main_queue()) {
-                    completionClosure(error: nil, image: image)
+                    completionClosure(image: image, error: nil)
                 }
             }
             self.closuresCalled = true
@@ -142,7 +142,7 @@ class PrefetchOperation: NSOperation {
             
             for completionClosure in completionClosures {
                 dispatch_sync(dispatch_get_main_queue()) {
-                    completionClosure(error: error, image: nil)
+                    completionClosure(image: nil, error: error)
                 }
             }
             completionClosures.removeAll()

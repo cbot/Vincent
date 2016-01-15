@@ -6,7 +6,8 @@
 import UIKit
 import MD5Digest
 
-public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
+public typealias CompletionClosure = (image: UIImage?, error: NSError?) -> Void
+public typealias RequestModificationClosure = (request: Request) -> Void
 
 @objc public enum CacheType: Int {
     case Automatic     // if a non stale image is contained in the cache, it is used. otherwise Protocol cache type is used
@@ -20,13 +21,7 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
     
     public lazy var prefetcher: Prefetcher = Prefetcher(vincent: self)
 
-    public var trustAllCertificates = false {
-        didSet {
-            if trustAllCertificates {
-                print("Vincent: WARNING! certificate validation is disabled!")
-            }
-        }
-    }
+    public var trustAllCertificates = false
     public var useDiskCache = true
     public var timeoutInterval = 30.0
     public var cacheInvalidationTimeout : NSTimeInterval = 1 * 24 * 3600
@@ -69,7 +64,7 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
     }
     
     // MARK: - Public methods    
-    public func downloadImageFromUrl(url: NSURL, cacheType: CacheType, callErrorOnCancel: Bool = false, requestDone requestDoneBlock: (() -> ())? = nil, completion: ((image: UIImage?, error: NSError?) -> ())?) -> String? {
+    public func downloadImageFromUrl(url: NSURL, cacheType: CacheType, callErrorOnCancel: Bool = false, requestDone requestDoneBlock: (() -> ())? = nil, requestModification: RequestModificationClosure? = nil, completion: CompletionClosure?) -> String? {
         var image : UIImage?
         let cacheKey = transformUrlToCacheKey(url.absoluteString)
         
@@ -113,6 +108,8 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
                 request.trustAllCertificates()
             }
             
+            requestModification?(request: request)
+            
             request.completion { [weak self] tmpImageUrl, error, invalidated in
                 if let this = self {
                     requestDoneBlock?()
@@ -149,12 +146,20 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
         }
     }
     
-    public func setHeaderValue(value: String?, forHeaderWithName name: String) {
+    public func setGlobalHeaderValue(value: String?, forHeaderWithName name: String) {
         globalRequestHeaders[name] = value
     }
     
-    public func setBasicAuthCredentials(user user: String, password: String) {
-        globalCredentials = NSURLCredential(user: user, password: password, persistence: .None)
+    public func setGlobalBasicAuthCredentials(credentials: NSURLCredential?) {
+        globalCredentials = credentials
+    }
+    
+    public func setGlobalBasicAuthCredentials(user user: String?, password: String?) {
+        if let user = user, password = password {
+            globalCredentials = NSURLCredential(user: user, password: password, persistence: .None)
+        } else {
+            globalCredentials = nil
+        }
     }
     
     public func storeImage(imageData: NSData?, forUrl url: NSURL?) {

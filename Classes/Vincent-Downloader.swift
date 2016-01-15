@@ -9,7 +9,7 @@
 import Foundation
 import UIKit
 
-class Request {
+public class Request {
     private(set) var trustsAllCertificates = false
     private(set) var credentials: NSURLCredential?
     private(set) var request: NSMutableURLRequest
@@ -24,12 +24,20 @@ class Request {
     }
     
     // MARK: - Public Methods
-    func method(method: String) -> Request {
+    public func method(method: String) -> Request {
         request.HTTPMethod = method
         return self
     }
     
-    func credentials(user user: String, password: String) -> Request {
+    public func credentials(urlCredentials: NSURLCredential?) -> Request {
+        if let urlCredentials = urlCredentials, user = urlCredentials.user, password = urlCredentials.password {
+            return credentials(user: user, password: password)
+        } else {
+            return self
+        }
+    }
+    
+    public func credentials(user user: String, password: String) -> Request {
         let userPasswordString = "\(user):\(password)"
         let userPasswordData = userPasswordString.dataUsingEncoding(NSUTF8StringEncoding)
         let base64EncodedCredential = userPasswordData!.base64EncodedStringWithOptions([])
@@ -38,12 +46,13 @@ class Request {
         return self
     }
     
-    func trustAllCertificates() -> Request {
+    public func trustAllCertificates() -> Request {
+        print("Vincent: WARNING! certificate validation is disabled!")
         trustsAllCertificates = true
         return self
     }
     
-    func header(header: String, withValue value: String) -> Request {
+    public func header(header: String, withValue value: String) -> Request {
         request.setValue(value, forHTTPHeaderField: header)
         return self
     }
