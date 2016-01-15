@@ -6,32 +6,53 @@
 import UIKit
 import MD5Digest
 
+/// A completion closure type that is used throughout this library
 public typealias CompletionClosure = (image: UIImage?, error: NSError?) -> Void
+
+/// A closure type that allows the modification of a Request object
 public typealias RequestModificationClosure = (request: Request) -> Void
 
+/**
+ The diffent kind options for cache handling when making requests
+ 
+ - Automatic:     If a non stale image is contained in the cache, it is used. otherwise Protocol cache type is used
+ - ForceCache:    if the image is contained in the cache (no matter how old), it is used. otherwise Protocol cache type is used
+ - ForceDownload: ALWAYS creates a download task, ignores any cache headers from the server
+ - Protocol:      ALWAYS creates a download task, cache headers decide if a request is actually made
+ */
 @objc public enum CacheType: Int {
-    case Automatic     // if a non stale image is contained in the cache, it is used. otherwise Protocol cache type is used
-    case ForceCache    // if the image is contained in the cache (no matter how old), it is used. otherwise Protocol cache type is used
-    case ForceDownload // ALWAYS creates a download task, ignores any cache headers from the server
-    case Protocol      // ALWAYS creates a download task, cache headers decide if a request is actually made
+    case Automatic
+    case ForceCache
+    case ForceDownload
+    case Protocol
 }
 
+/// The main Vincent class that handles downloading and caching
 @objc public class Vincent : NSObject {
+    /// The shared instance of Vincent. This is for convenience, you are free to create additional instances as needed
     public static let sharedInstance = Vincent(identifier: "shared-downloader")
     
+    /// A ready to use prefetcher instance
     public lazy var prefetcher: Prefetcher = Prefetcher(vincent: self)
 
-    public var trustAllCertificates = false
+    /// Whether to use the disk cache or memory-only caching. The default value is true, which enabled the disk cache.
     public var useDiskCache = true
+    
+    /// The timeout interval to use when downloading images
     public var timeoutInterval = 30.0
-    public var cacheInvalidationTimeout : NSTimeInterval = 1 * 24 * 3600
-    public var memoryCacheSize : Int = 64 * 1024 * 1024 {
+    
+    /// The amount of time after which a cached image is considered stale. The default value is 1 day.
+    public var cacheInvalidationTimeout: NSTimeInterval = 1 * 24 * 3600
+    
+    /// The amount of memory to use for the memory cache
+    public var memoryCacheSize: Int = 64 * 1024 * 1024 {
         willSet {
             memoryCache.totalCostLimit = newValue
         }
     }
 
     private var downloader = VincentDowloader()
+
     private(set) var diskCacheFolderUrl: NSURL
     
     private lazy var memoryCache: NSCache = {
@@ -49,8 +70,14 @@ public typealias RequestModificationClosure = (request: Request) -> Void
     private var diskCacheSemaphore = dispatch_semaphore_create(1);
     private var globalRequestHeaders = [String: String]()
     private var globalCredentials: NSURLCredential?
+    private var trustsAllCertificates = false
     
     // MARK: - Constructor
+    /**
+    Creates a new Vincent instance with the given identifier.
+    
+    - parameter identifier: The identifier for this instance. This is used for disk caching.
+    */
     public init(identifier: String) {
         let cachesDirectory = NSSearchPathForDirectoriesInDomains(.CachesDirectory, .UserDomainMask, true).first!
         diskCacheFolderUrl = NSURL(fileURLWithPath: cachesDirectory).URLByAppendingPathComponent(identifier, isDirectory: false)
@@ -63,7 +90,19 @@ public typealias RequestModificationClosure = (request: Request) -> Void
         NSNotificationCenter.defaultCenter().addObserver(self, selector: "appWillResignActive:", name: UIApplicationWillResignActiveNotification, object: nil)
     }
     
-    // MARK: - Public methods    
+    // MARK: - Public methods
+    /**
+    The method that does the actual download and cache handling.
+    
+    - parameter url:                 The URL to download from
+    - parameter cacheType:           The CacheType to use for the download
+    - parameter callErrorOnCancel:   Whether or not to call the completion block with an error for canceled requests. Defaults to false.
+    - parameter requestDoneBlock:    An optional block that is guaranteed to be called after an image has been retrieved (from the cache or from the web) or when a requests has failed.
+    - parameter requestModification: An optional block that allows the Request for to be modified.
+    - parameter completion:          An optional completion closure that is called with either the retrieved image or with an instance of NSError.
+    
+    - returns: A request identifier that can be used to cancel the request
+    */
     public func downloadImageFromUrl(url: NSURL, cacheType: CacheType, callErrorOnCancel: Bool = false, requestDone requestDoneBlock: (() -> ())? = nil, requestModification: RequestModificationClosure? = nil, completion: CompletionClosure?) -> String? {
         var image : UIImage?
         let cacheKey = transformUrlToCacheKey(url.absoluteString)
@@ -104,7 +143,7 @@ public typealias RequestModificationClosure = (request: Request) -> Void
                 request.credentials(user: user, password: password)
             }
             
-            if trustAllCertificates {
+            if trustsAllCertificates {
                 request.trustAllCertificates()
             }
             
@@ -146,14 +185,31 @@ public typealias RequestModificationClosure = (request: Request) -> Void
         }
     }
     
+    /**
+     Sets a global HTTP header to use for all requests. Use an RequestModificationClosure (see downloadImageFromUrl) to set headers for individual requests.
+     
+     - parameter value: the header's value. Pass nil to remove the header with the given name.
+     - parameter name:  the header's name
+     */
     public func setGlobalHeaderValue(value: String?, forHeaderWithName name: String) {
         globalRequestHeaders[name] = value
     }
     
+    /**
+     Sets global HTTP Basic auth credentials for all requests. Use an RequestModificationClosure (see downloadImageFromUrl) to set credentials for individual requests.
+     
+     - parameter credentials: the credentials to be used. Pass nil to remove credentials.
+     */
     public func setGlobalBasicAuthCredentials(credentials: NSURLCredential?) {
         globalCredentials = credentials
     }
     
+    /**
+     Sets global HTTP Basic auth credentials for all requests. Use an RequestModificationClosure (see downloadImageFromUrl) to set credentials for individual requests.
+     
+     - parameter user:     the user name to be used. Pass nil to remove credentials.
+     - parameter password: the password to be used. Pass nil to remove credentials.
+     */
     public func setGlobalBasicAuthCredentials(user user: String?, password: String?) {
         if let user = user, password = password {
             globalCredentials = NSURLCredential(user: user, password: password, persistence: .None)
@@ -162,6 +218,19 @@ public typealias RequestModificationClosure = (request: Request) -> Void
         }
     }
     
+    /**
+     Disables HTTPS certificate validation for all requests. Be careful with this setting, this should only be used during development. On iOS 9 and later you have to make sure to also disable ATS in your info.plist.
+     */
+    public func trustAllCertificates() {
+        trustsAllCertificates = true
+    }
+    
+    /**
+     Stores an image in the cache
+     
+     - parameter imageData: the image data to store
+     - parameter url:       the URL for this image, this is transformed and used as the cache key
+     */
     public func storeImage(imageData: NSData?, forUrl url: NSURL?) {
         if let url = url {
             let cacheKey = transformUrlToCacheKey(url.absoluteString)
@@ -169,12 +238,25 @@ public typealias RequestModificationClosure = (request: Request) -> Void
         }
     }
     
+    /**
+     Stores an image in the cache
+
+     - parameter imageData: the image data to store
+     - parameter key:       the cache key to use
+     */
     public func storeImage(imageData: NSData?, forKey key: String?) {
         if let cacheKey = key, imageData = imageData, image = UIImage(data: imageData), tmpUrl = tmpFileWithData(imageData) {
             cacheImage(image, key: cacheKey, tempImageFile: tmpUrl, memCacheOnly: false)
         }
     }
     
+    /**
+     Fetches an image from the cache with the given cache key
+     
+     - parameter key: the cache key to use
+     
+     - returns: an instance of UIImage or nil
+     */
     public func retrieveCachedImageForKey(key: String?) -> UIImage? {
         if let cacheKey = key {
             return retrieveCachedImageForKey(cacheKey, ignoreLastAccessed: true)
@@ -182,6 +264,13 @@ public typealias RequestModificationClosure = (request: Request) -> Void
         return nil
     }
     
+    /**
+     Fetches an image for the given URL from the cache
+     
+     - parameter url: the URL to fetch the image for
+     
+     - returns: an instance of UIImage or nil
+     */
     public func retrieveCachedImageForUrl(url: NSURL?) -> UIImage? {
         if let url = url {
             let cacheKey = transformUrlToCacheKey(url.absoluteString)
@@ -190,6 +279,11 @@ public typealias RequestModificationClosure = (request: Request) -> Void
         return nil
     }
     
+    /**
+     Deletes an image from the cache
+     
+     - parameter url: the URL for the image to be deleted
+     */
     public func deleteCachedImageForUrl(url: NSURL?) {
         if let url = url {
             let cacheKey = transformUrlToCacheKey(url.absoluteString)
@@ -197,12 +291,22 @@ public typealias RequestModificationClosure = (request: Request) -> Void
         }
     }
     
+    /**
+     Invalides a running download. An invalidated download is not canceled. Instead, the download continues in the background and the downloaded image is stored in the cache. However, no completion blocks are called.
+     
+     - parameter downloadIdentifier: the download identifier whose associated download should be invalidated
+     */
     public func invalidate(downloadIdentifier: String?) {
         if let downloadIdentifier = downloadIdentifier {
             downloader.invalidateRequest(downloadIdentifier)
         }
     }
     
+    /**
+     Cancels a running download
+     
+     - parameter downloadIdentifier: the download identifier whose associated download should be canceled
+     */
     public func cancel(downloadIdentifier: String?) {
         if let downloadIdentifier = downloadIdentifier {
             downloader.cancelRequest(downloadIdentifier)
