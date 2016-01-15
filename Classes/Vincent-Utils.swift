@@ -89,29 +89,26 @@ public extension UIImageView {
         
         numRequests++
         
-        self.downloadTaskIdentifier = Vincent.sharedInstance.downloadImageFromUrl(url, cacheType: cacheType, success: {[weak self] image in
-            self?.downloadTaskIdentifier = nil
-            dispatch_async(dispatch_get_main_queue(), {
-                self?.image = image
+        self.downloadTaskIdentifier = Vincent.sharedInstance.downloadImageFromUrl(url, cacheType: cacheType, requestDone: { [weak self] in
+            dispatch_async(dispatch_get_main_queue()) {
                 if let vincentImageView = self as? VincentImageView where vincentImageView.showsSpinner {
-                    vincentImageView.activityIndicator.stopAnimating()
+                    self?.numRequests--
                 }
-                completion?(error: nil, image: image)
-            })
-        }, error: {[weak self] error in
-            if error.code != -999 {
-                self?.downloadTaskIdentifier = nil
+            }
+        }) { [weak self] image, error in
+            self?.downloadTaskIdentifier = nil
+            guard let image = image else {
                 dispatch_async(dispatch_get_main_queue(), {
                     completion?(error: error, image: nil)
                 })
+                return
             }
-        }, requestDone: {
-            dispatch_async(dispatch_get_main_queue()) {
-                if let vincentImageView = self as? VincentImageView where vincentImageView.showsSpinner {
-                    self.numRequests--
-                }
-            }
-        })
+            
+            dispatch_async(dispatch_get_main_queue(), {
+                self?.image = image
+                completion?(error: nil, image: image)
+            })
+        }
     }
     
     func cancelImageDownload() {
@@ -187,20 +184,20 @@ public extension UIButton {
         
         guard let url = url else {return}
         
-        self.downloadTaskIdentifier = Vincent.sharedInstance.downloadImageFromUrl(url, cacheType: cacheType, success: {[weak self] image in
+        self.downloadTaskIdentifier = Vincent.sharedInstance.downloadImageFromUrl(url, cacheType: cacheType) { [weak self] image, error in
             self?.downloadTaskIdentifier = nil
+            guard let image = image else {
+                dispatch_async(dispatch_get_main_queue(), {
+                    completion?(error: error, image: nil)
+                })
+                return
+            }
+        
             dispatch_async(dispatch_get_main_queue(), {
                 self?.setImage(image, forState: state)
                 completion?(error: nil, image: image)
             })
-        }, error: {[weak self] error in
-            if error.code != -999 {
-                self?.downloadTaskIdentifier = nil
-                dispatch_async(dispatch_get_main_queue(), {
-                    completion?(error: error, image: nil)
-                })
-            }
-        })
+        }
     }
     
     func cancelImageDownload() {

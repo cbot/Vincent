@@ -108,7 +108,20 @@ class PrefetchOperation: NSOperation {
         super.main()
         guard let prefetcher = prefetcher, vincent = prefetcher.vincent else {return}
         
-        vincent.downloadImageFromUrl(url, cacheType: prefetcher.cacheType, success: { image in
+        vincent.downloadImageFromUrl(url, cacheType: prefetcher.cacheType) { image, error in
+            guard let image = image else {
+                dispatch_semaphore_wait(self.completionClosuresSemaphore, DISPATCH_TIME_FOREVER)
+                for completionClosure in self.completionClosures {
+                    dispatch_sync(dispatch_get_main_queue()) {
+                        completionClosure(error: error, image: nil)
+                    }
+                }
+                self.closuresCalled = true
+                dispatch_semaphore_signal(self.completionClosuresSemaphore)
+                dispatch_semaphore_signal(self.downloadSemaphore)
+                return
+            }
+            
             dispatch_semaphore_wait(self.completionClosuresSemaphore, DISPATCH_TIME_FOREVER)
             for completionClosure in self.completionClosures {
                 dispatch_sync(dispatch_get_main_queue()) {
@@ -117,20 +130,8 @@ class PrefetchOperation: NSOperation {
             }
             self.closuresCalled = true
             dispatch_semaphore_signal(self.completionClosuresSemaphore)
-            
             dispatch_semaphore_signal(self.downloadSemaphore)
-        }, error: { error in
-            dispatch_semaphore_wait(self.completionClosuresSemaphore, DISPATCH_TIME_FOREVER)
-            for completionClosure in self.completionClosures {
-                dispatch_sync(dispatch_get_main_queue()) {
-                    completionClosure(error: error, image: nil)
-                }
-            }
-            self.closuresCalled = true
-            dispatch_semaphore_signal(self.completionClosuresSemaphore)
-            
-            dispatch_semaphore_signal(self.downloadSemaphore)
-        })
+        }
         
         let timeout = dispatch_time(DISPATCH_TIME_NOW, Int64(Double(prefetcher.operationTimeout) * Double(NSEC_PER_SEC)))
         dispatch_semaphore_wait(downloadSemaphore, timeout)

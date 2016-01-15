@@ -52,8 +52,8 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
     }()
     
     private var diskCacheSemaphore = dispatch_semaphore_create(1);
-    private var requestHeaders = [String: String]()
-    private var credentials: NSURLCredential?
+    private var globalRequestHeaders = [String: String]()
+    private var globalCredentials: NSURLCredential?
     
     // MARK: - Constructor
     public init(identifier: String) {
@@ -69,7 +69,7 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
     }
     
     // MARK: - Public methods    
-    public func downloadImageFromUrl(url: NSURL, cacheType: CacheType, callErrorOnCancel: Bool = false, success successBlock: ((image: UIImage) -> ())?, error errorBlock: ((error: NSError) -> ())?, requestDone requestDoneBlock: (() -> ())? = nil) -> String? {
+    public func downloadImageFromUrl(url: NSURL, cacheType: CacheType, callErrorOnCancel: Bool = false, requestDone requestDoneBlock: (() -> ())? = nil, completion: ((image: UIImage?, error: NSError?) -> ())?) -> String? {
         var image : UIImage?
         let cacheKey = transformUrlToCacheKey(url.absoluteString)
         
@@ -83,28 +83,29 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
                 
         if image != nil {
             requestDoneBlock?()
-            successBlock?(image: image!)
-            return nil;
+            completion?(image: image, error: nil)
+            return nil
         }
         
         if url.fileURL {
             if let data = NSData(contentsOfURL: url), image = UIImage(data: data) {
                 cacheImage(image, key: cacheKey, tempImageFile: url, memCacheOnly: true)
                 requestDoneBlock?()
-                successBlock?(image: image)
+                completion?(image: image, error: nil)
             } else {
                 requestDoneBlock?()
-                errorBlock?(error: NSError(domain: "Vincent", code: -6, userInfo: [NSLocalizedDescriptionKey: "unable to load image from file url"]))
+                completion?(image: nil, error: NSError(domain: "Vincent", code: -6, userInfo: [NSLocalizedDescriptionKey: "unable to load image from file url"]))
             }
             return nil
         } else {
             let request = downloader.request(url, cachePolicy: cacheType == .ForceDownload ? .ReloadIgnoringLocalCacheData : .UseProtocolCachePolicy, timeoutInterval: timeoutInterval)
             
-            for (key, value) in requestHeaders {
+            request.header("Accept", withValue: "image/*")
+            for (key, value) in globalRequestHeaders {
                 request.header(key, withValue: value)
             }
             
-            if let credentials = credentials, user = credentials.user, password = credentials.password {
+            if let credentials = globalCredentials, user = credentials.user, password = credentials.password {
                 request.credentials(user: user, password: password)
             }
             
@@ -120,11 +121,11 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
                         if error.code == -999 && !callErrorOnCancel { // cancelled request
                             return
                         } else {
-                            errorBlock?(error: error)
+                            completion?(image: nil, error: error)
                         }
                     } else {
                         guard let tmpImageUrl = tmpImageUrl, data = NSData(contentsOfURL: tmpImageUrl) else {
-                            errorBlock?(error: error ?? NSError(domain: "Vincent", code: -3, userInfo: [NSLocalizedDescriptionKey: "download error"]))
+                            completion?(image: nil, error: error ?? NSError(domain: "Vincent", code: -3, userInfo: [NSLocalizedDescriptionKey: "download error"]))
                             return
                         }
                         
@@ -132,12 +133,12 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
                         if let image = image {
                             this.cacheImage(image, key: cacheKey, tempImageFile: tmpImageUrl, memCacheOnly: false)
                             if (!invalidated) {
-                                successBlock?(image: image)
+                                completion?(image: image, error: nil)
                             }
                         } else if (!invalidated) {
                             let error = NSError(domain: "Vincent", code: -2, userInfo:[NSLocalizedDescriptionKey: "unable to decode image"])
                             print(error)
-                            errorBlock?(error: error)
+                            completion?(image: nil, error: error)
                         }
                     }
                 }
@@ -149,11 +150,11 @@ public typealias CompletionClosure = (error: NSError?, image: UIImage?) -> Void
     }
     
     public func setHeaderValue(value: String?, forHeaderWithName name: String) {
-        requestHeaders[name] = value
+        globalRequestHeaders[name] = value
     }
     
     public func setBasicAuthCredentials(user user: String, password: String) {
-        credentials = NSURLCredential(user: user, password: password, persistence: .None)
+        globalCredentials = NSURLCredential(user: user, password: password, persistence: .None)
     }
     
     public func storeImage(imageData: NSData?, forUrl url: NSURL?) {
