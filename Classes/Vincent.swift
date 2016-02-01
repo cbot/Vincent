@@ -134,7 +134,7 @@ public typealias RequestModificationClosure = (request: Request) -> Void
         } else {
             let request = downloader.request(url, cachePolicy: cacheType == .ForceDownload ? .ReloadIgnoringLocalCacheData : .UseProtocolCachePolicy, timeoutInterval: timeoutInterval)
             
-            request.header("Accept", withValue: "image/jpeg, image/png, image/gif, */*; q=0.5")
+            request.header("Accept", withValue: "image/*, */*; q=0.5")
             for (key, value) in globalRequestHeaders {
                 request.header(key, withValue: value)
             }
