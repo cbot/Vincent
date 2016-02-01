@@ -72,7 +72,10 @@ public class Request {
     }
     
     private func handleError(error: NSError) {
-        print(error)
+        if error.code != -999 {
+            print(error)
+        }
+        
         if let completionClosure = completionClosure {
             dispatch_sync(dispatch_get_main_queue()) {
                 completionClosure(url: nil, error: error, invalidated: self.invalidated)
