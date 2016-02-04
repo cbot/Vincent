@@ -68,8 +68,8 @@ public typealias RequestModificationClosure = (request: Request) -> Void
     }()
     
     private var diskCacheSemaphore = dispatch_semaphore_create(1);
-    private var globalRequestHeaders = [String: String]()
-    private var globalCredentials: NSURLCredential?
+    private var globalRequestHeaders = VincentGlobalHeaders()
+    private var globalCredentials = VincentGlobalCredentials()
     private var trustsAllCertificates = false
     
     // MARK: - Constructor
@@ -135,11 +135,11 @@ public typealias RequestModificationClosure = (request: Request) -> Void
             let request = downloader.request(url, cachePolicy: cacheType == .ForceDownload ? .ReloadIgnoringLocalCacheData : .UseProtocolCachePolicy, timeoutInterval: timeoutInterval)
             
             request.header("Accept", withValue: "image/*, */*; q=0.5")
-            for (key, value) in globalRequestHeaders {
+            for (key, value) in globalRequestHeaders.headersForHost(url.host) {
                 request.header(key, withValue: value)
             }
             
-            if let credentials = globalCredentials, user = credentials.user, password = credentials.password {
+            if let credentials = globalCredentials.credentialsForHost(url.host), user = credentials.user, password = credentials.password {
                 request.credentials(user: user, password: password)
             }
             
@@ -190,18 +190,20 @@ public typealias RequestModificationClosure = (request: Request) -> Void
      
      - parameter value: the header's value. Pass nil to remove the header with the given name.
      - parameter name:  the header's name
+     - parameter host:  if given, the header is only set for requests to the specific host
      */
-    public func setGlobalHeaderValue(value: String?, forHeaderWithName name: String) {
-        globalRequestHeaders[name] = value
+    public func setGlobalHeaderValue(value: String?, forHeaderWithName name: String, forHost host: String? = nil) {
+        globalRequestHeaders.setHeader(name, value: value, forHost: host)
     }
     
     /**
      Sets global HTTP Basic auth credentials for all requests. Use an RequestModificationClosure (see downloadImageFromUrl) to set credentials for individual requests.
      
      - parameter credentials: the credentials to be used. Pass nil to remove credentials.
+     - parameter host:        if given, the credentials are only set for requests to the specific host
      */
-    public func setGlobalBasicAuthCredentials(credentials: NSURLCredential?) {
-        globalCredentials = credentials
+    public func setGlobalBasicAuthCredentials(credentials: NSURLCredential?, forHost host: String? = nil) {
+        globalCredentials.setCredentials(credentials, forHost: host)
     }
     
     /**
@@ -209,12 +211,13 @@ public typealias RequestModificationClosure = (request: Request) -> Void
      
      - parameter user:     the user name to be used. Pass nil to remove credentials.
      - parameter password: the password to be used. Pass nil to remove credentials.
+     - parameter host:     if given, the credentials are only set for requests to the specific host
      */
-    public func setGlobalBasicAuthCredentials(user user: String?, password: String?) {
+    public func setGlobalBasicAuthCredentials(user user: String?, password: String?, forHost host: String? = nil) {
         if let user = user, password = password {
-            globalCredentials = NSURLCredential(user: user, password: password, persistence: .None)
+            globalCredentials.setCredentials(NSURLCredential(user: user, password: password, persistence: .None), forHost: host)
         } else {
-            globalCredentials = nil
+            globalCredentials.setCredentials(nil, forHost: host)
         }
     }
     
@@ -504,7 +507,7 @@ public typealias RequestModificationClosure = (request: Request) -> Void
 }
 
 // MARK: - VincentCacheEntry
-class VincentCacheEntry: NSObject {
+private class VincentCacheEntry: NSObject {
     var image : UIImage
     var lastAccessed : NSDate
     var cacheKey : String
@@ -518,3 +521,70 @@ class VincentCacheEntry: NSObject {
         super.init()
     }
 }
+
+// MARK: - VincentGlobalHeaders
+private class VincentGlobalHeaders {
+    private var allHostsHeaders = [String: String]()
+    private var specificHostHeaders = [String: [String: String]]()
+    
+    func setHeader(name: String, value: String?, forHost host: String?) {
+        if let host = host {
+            var headers = specificHostHeaders[host] ?? [String: String]()
+            headers[name] = value
+            specificHostHeaders[host] = headers
+        } else {
+            allHostsHeaders[name] = value
+        }
+    }
+    
+    func setHeaders(headers: [String: String], forHost host: String?) {
+        if let host = host {
+            specificHostHeaders[host] = headers
+        } else {
+            allHostsHeaders = headers
+        }
+    }
+    
+    func headersForHost(host: String?) -> [String: String] {
+        if let host = host {
+            if let specificHeaders = specificHostHeaders[host] {
+                return specificHeaders.reduce(allHostsHeaders) { (var dict, e) in
+                    dict[e.0] = e.1
+                    return dict
+                }
+            } else {
+                return allHostsHeaders
+            }
+        } else {
+            return allHostsHeaders
+        }
+    }
+}
+
+// MARK: - VincentGlobalCredentials
+private class VincentGlobalCredentials {
+    private var allHostsCredentials: NSURLCredential?
+    private var specificHostCredentials = [String: NSURLCredential]()
+    
+    func setCredentials(credentials: NSURLCredential?, forHost host: String?) {
+        if let host = host {
+            specificHostCredentials[host] = credentials
+        } else {
+            allHostsCredentials = credentials
+        }
+    }
+    
+    func credentialsForHost(host: String?) -> NSURLCredential? {
+        if let host = host {
+            if let specificCredentials = specificHostCredentials[host] {
+                return specificCredentials
+            } else {
+                return allHostsCredentials
+            }
+        } else {
+            return allHostsCredentials
+        }
+    }
+}
+
+
