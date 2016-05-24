@@ -9,7 +9,7 @@
 import Foundation
 import UIKit
 
-class VincentDowloader: NSObject, NSURLSessionDelegate, NSURLSessionTaskDelegate, NSURLSessionDataDelegate, NSURLSessionDownloadDelegate {
+class Dowloader: NSObject, NSURLSessionDelegate, NSURLSessionTaskDelegate, NSURLSessionDataDelegate, NSURLSessionDownloadDelegate {
     private var registeredRequests = [String: Request]()
     
     private lazy var urlSession: NSURLSession = {

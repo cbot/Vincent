@@ -56,6 +56,10 @@ public class Request {
         return self
     }
     
+    func setCustomIdentifier(identifier: String) {
+        self.identifier = identifier
+    }
+    
     func completion(completion: (url: NSURL?, error: NSError?, invalidated: Bool) -> ()) -> Request {
         completionClosure = completion
         return self

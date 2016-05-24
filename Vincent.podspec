@@ -10,5 +10,5 @@ Pod::Spec.new do |s|
 
   s.source       = { :git => 'https://github.com/cbot/Vincent.git', :tag => s.version.to_s }
   s.source_files  = 'Classes/*'
-  s.dependency 'MD5Digest'
+  s.dependency 'CryptoSwift'
 end
