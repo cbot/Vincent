@@ -35,7 +35,7 @@ public typealias RequestModificationClosure = (request: Request) -> Void
     /// A ready to use prefetcher instance
     public lazy var prefetcher: Prefetcher = Prefetcher(vincent: self)
 
-    /// Whether to use the disk cache or memory-only caching. The default value is true, which enabled the disk cache.
+    /// Whether to use the disk cache or memory-only caching. The default value is true, which enables the disk cache.
     public var useDiskCache = true
     
     /// The timeout interval to use when downloading images
@@ -87,7 +87,7 @@ public typealias RequestModificationClosure = (request: Request) -> Void
             print("Vincent: unable to create disk cache folder: \(error)")
         }
         super.init()
-        NSNotificationCenter.defaultCenter().addObserver(self, selector: "appWillResignActive:", name: UIApplicationWillResignActiveNotification, object: nil)
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(appWillResignActive(_:)), name: UIApplicationWillResignActiveNotification, object: nil)
     }
     
     // MARK: - Public methods
@@ -548,9 +548,10 @@ private class VincentGlobalHeaders {
     func headersForHost(host: String?) -> [String: String] {
         if let host = host {
             if let specificHeaders = specificHostHeaders[host] {
-                return specificHeaders.reduce(allHostsHeaders) { (var dict, e) in
-                    dict[e.0] = e.1
-                    return dict
+                return specificHeaders.reduce(allHostsHeaders) { (dict, e) in
+                    var mutableDict = dict
+                    mutableDict[e.0] = e.1
+                    return mutableDict
                 }
             } else {
                 return allHostsHeaders

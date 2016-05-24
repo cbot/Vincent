@@ -85,12 +85,12 @@ public extension UIImageView {
         
         guard let url = url else {return}
         
-        numRequests++
+        numRequests += 1
         
         self.downloadTaskIdentifier = Vincent.sharedInstance.downloadImageFromUrl(url, cacheType: cacheType, requestModification: requestModification, requestDone: { [weak self] in
             dispatch_async(dispatch_get_main_queue()) {
                 if let vincentImageView = self as? VincentImageView where vincentImageView.showsSpinner {
-                    self?.numRequests--
+                    self?.numRequests -= 1
                 }
             }
         }) { [weak self] image, error in
