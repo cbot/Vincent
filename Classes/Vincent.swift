@@ -456,9 +456,11 @@ public typealias RequestModificationClosure = (request: Request) -> Void
         let url = diskCacheFolderUrl.URLByAppendingPathComponent(key, isDirectory: false)
         
         dispatch_semaphore_wait(self.diskCacheSemaphore, DISPATCH_TIME_FOREVER);
-        if let tempImageFile = tempImageFile { // store new image
-            
-        _ = try? NSFileManager.defaultManager().moveItemAtURL(tempImageFile, toURL: url)
+        if let tempImageFile = tempImageFile, path = url.path { // store new image
+            if NSFileManager.defaultManager().fileExistsAtPath(path) {
+                try? NSFileManager.defaultManager().removeItemAtURL(url)
+            }
+            _ = try? NSFileManager.defaultManager().copyItemAtURL(tempImageFile, toURL: url)
         } else if let cacheEntry = cacheEntry { // update image access date
             _ = try? url.setResourceValue(cacheEntry.lastAccessed, forKey: NSURLContentAccessDateKey)
         } else { // delete image

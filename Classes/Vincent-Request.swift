@@ -16,10 +16,13 @@ public class Request {
     private(set) var identifier = NSUUID().UUIDString
     weak var downloadTask: NSURLSessionDownloadTask?
     var invalidated = false
+    private(set) var fingerPrint = NSUUID().UUIDString
     
     init(url: NSURL, cachePolicy: NSURLRequestCachePolicy, timeoutInterval: NSTimeInterval) {
         self.request = NSMutableURLRequest(URL: url, cachePolicy: cachePolicy, timeoutInterval: timeoutInterval)
         self.request.HTTPMethod = "GET"
+        
+        fingerPrint = url.absoluteString
     }
     
     // MARK: - Public Methods
