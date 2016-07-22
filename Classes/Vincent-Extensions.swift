@@ -35,45 +35,45 @@ public extension UIImageView {
         }
     }
     
-    func setImageWithString(urlString: String?) {
-        setImageWithString(urlString, placeHolder: nil, cacheType: .Automatic, completion: nil)
+    func setImageWithString(_ urlString: String?) {
+        setImageWithString(urlString, placeHolder: nil, cacheType: .automatic, completion: nil)
     }
     
-    func setImageWithString(urlString: String?, completion: CompletionClosure?) {
-        setImageWithString(urlString, placeHolder: nil, cacheType: .Automatic, completion: completion)
+    func setImageWithString(_ urlString: String?, completion: CompletionClosure?) {
+        setImageWithString(urlString, placeHolder: nil, cacheType: .automatic, completion: completion)
     }
     
-    func setImageWithString(urlString: String?, placeHolder: UIImage?) {
-        setImageWithString(urlString, placeHolder: placeHolder, cacheType: .Automatic, completion: nil)
+    func setImageWithString(_ urlString: String?, placeHolder: UIImage?) {
+        setImageWithString(urlString, placeHolder: placeHolder, cacheType: .automatic, completion: nil)
     }
     
-    func setImageWithString(urlString: String?, placeHolder: UIImage?, completion: CompletionClosure?) {
-        setImageWithString(urlString, placeHolder: placeHolder, cacheType: .Automatic, completion: completion)
+    func setImageWithString(_ urlString: String?, placeHolder: UIImage?, completion: CompletionClosure?) {
+        setImageWithString(urlString, placeHolder: placeHolder, cacheType: .automatic, completion: completion)
     }
     
-    func setImageWithString(urlString: String?, placeHolder: UIImage?, cacheType: CacheType, requestModification: RequestModificationClosure? = nil, completion: CompletionClosure?) {
+    func setImageWithString(_ urlString: String?, placeHolder: UIImage?, cacheType: CacheType, requestModification: RequestModificationClosure? = nil, completion: CompletionClosure?) {
         if let urlString = urlString {
-            setImageWithUrl(NSURL(string: urlString), placeHolder: placeHolder, cacheType: cacheType, requestModification: requestModification, completion: completion)
+            setImageWithUrl(URL(string: urlString), placeHolder: placeHolder, cacheType: cacheType, requestModification: requestModification, completion: completion)
         }
     }
     
-    func setImageWithUrl(url: NSURL?) {
-        setImageWithUrl(url, placeHolder: nil, cacheType: .Automatic, completion: nil)
+    func setImageWithUrl(_ url: URL?) {
+        setImageWithUrl(url, placeHolder: nil, cacheType: .automatic, completion: nil)
     }
     
-    func setImageWithUrl(url: NSURL?, completion: CompletionClosure?) {
-        setImageWithUrl(url, placeHolder: nil, cacheType: .Automatic, completion: completion)
+    func setImageWithUrl(_ url: URL?, completion: CompletionClosure?) {
+        setImageWithUrl(url, placeHolder: nil, cacheType: .automatic, completion: completion)
     }
     
-    func setImageWithUrl(url: NSURL?, placeHolder: UIImage?) {
-        setImageWithUrl(url, placeHolder: placeHolder, cacheType: .Automatic, completion: nil)
+    func setImageWithUrl(_ url: URL?, placeHolder: UIImage?) {
+        setImageWithUrl(url, placeHolder: placeHolder, cacheType: .automatic, completion: nil)
     }
     
-    func setImageWithUrl(url: NSURL?, placeHolder: UIImage?, completion: CompletionClosure?) {
-        setImageWithUrl(url, placeHolder: placeHolder, cacheType: .Automatic, completion: completion)
+    func setImageWithUrl(_ url: URL?, placeHolder: UIImage?, completion: CompletionClosure?) {
+        setImageWithUrl(url, placeHolder: placeHolder, cacheType: .automatic, completion: completion)
     }
     
-    func setImageWithUrl(url: NSURL?, placeHolder: UIImage?, cacheType: CacheType, requestModification: RequestModificationClosure? = nil, completion: CompletionClosure?) {
+    func setImageWithUrl(_ url: URL?, placeHolder: UIImage?, cacheType: CacheType, requestModification: RequestModificationClosure? = nil, completion: CompletionClosure?) {
         let downloader = Vincent.sharedInstance
         downloader.invalidate(self.downloadTaskIdentifier)
         
@@ -87,22 +87,22 @@ public extension UIImageView {
         
         numRequests += 1
         
-        self.downloadTaskIdentifier = Vincent.sharedInstance.downloadImageFromUrl(url, cacheType: cacheType, requestModification: requestModification, requestDone: { [weak self] in
-            dispatch_async(dispatch_get_main_queue()) {
-                if let vincentImageView = self as? VincentImageView where vincentImageView.showsSpinner {
+        self.downloadTaskIdentifier = Vincent.sharedInstance.downloadImageFromUrl(url, cacheType: cacheType, requestDone: { [weak self] in
+            DispatchQueue.main.async {
+                if let vincentImageView = self as? VincentImageView, vincentImageView.showsSpinner {
                     self?.numRequests -= 1
                 }
             }
-        }) { [weak self] image, error in
+        }, requestModification: requestModification) { [weak self] image, error in
             self?.downloadTaskIdentifier = nil
             guard let image = image else {
-                dispatch_async(dispatch_get_main_queue(), {
+                DispatchQueue.main.async(execute: {
                     completion?(image: nil, error: error)
                 })
                 return
             }
             
-            dispatch_async(dispatch_get_main_queue(), {
+            DispatchQueue.main.async(execute: {
                 self?.image = image
                 completion?(image: image, error: nil)
             })
@@ -130,52 +130,52 @@ public extension UIButton {
         }
     }
     
-    func setImageWithString(urlString: String?, forState state: UIControlState) {
-        setImageWithString(urlString, forState: state, placeHolder: nil, cacheType: .Automatic, completion: nil)
+    func setImageWithString(_ urlString: String?, forState state: UIControlState) {
+        setImageWithString(urlString, forState: state, placeHolder: nil, cacheType: .automatic, completion: nil)
     }
     
-    func setImageWithString(urlString: String?, forState state: UIControlState, completion: CompletionClosure?) {
-        setImageWithString(urlString, forState: state, placeHolder: nil, cacheType: .Automatic, completion: completion)
+    func setImageWithString(_ urlString: String?, forState state: UIControlState, completion: CompletionClosure?) {
+        setImageWithString(urlString, forState: state, placeHolder: nil, cacheType: .automatic, completion: completion)
     }
     
-    func setImageWithString(urlString: String?, forState state: UIControlState, placeHolder: UIImage?) {
-        setImageWithString(urlString, forState: state, placeHolder: placeHolder, cacheType: .Automatic, completion: nil)
+    func setImageWithString(_ urlString: String?, forState state: UIControlState, placeHolder: UIImage?) {
+        setImageWithString(urlString, forState: state, placeHolder: placeHolder, cacheType: .automatic, completion: nil)
     }
     
-    func setImageWithString(urlString: String?, forState state: UIControlState, placeHolder: UIImage?, completion: CompletionClosure?) {
-        setImageWithString(urlString, forState: state, placeHolder: placeHolder, cacheType: .Automatic, completion: completion)
+    func setImageWithString(_ urlString: String?, forState state: UIControlState, placeHolder: UIImage?, completion: CompletionClosure?) {
+        setImageWithString(urlString, forState: state, placeHolder: placeHolder, cacheType: .automatic, completion: completion)
     }
     
-    func setImageWithString(urlString: String?, forState state: UIControlState, placeHolder: UIImage?, cacheType: CacheType, requestModification: RequestModificationClosure? = nil, completion: CompletionClosure?) {
+    func setImageWithString(_ urlString: String?, forState state: UIControlState, placeHolder: UIImage?, cacheType: CacheType, requestModification: RequestModificationClosure? = nil, completion: CompletionClosure?) {
         if let urlString = urlString {
-            setImageWithUrl(NSURL(string: urlString), forState: state, placeHolder: placeHolder, cacheType: cacheType, requestModification: requestModification, completion: completion)
+            setImageWithUrl(URL(string: urlString), forState: state, placeHolder: placeHolder, cacheType: cacheType, requestModification: requestModification, completion: completion)
         }
     }
     
-    func setImageWithUrl(url: NSURL?, forState state: UIControlState) {
-        setImageWithUrl(url, forState: state, placeHolder: nil, cacheType: .Automatic, completion: nil)
+    func setImageWithUrl(_ url: URL?, forState state: UIControlState) {
+        setImageWithUrl(url, forState: state, placeHolder: nil, cacheType: .automatic, completion: nil)
     }
     
-    func setImageWithUrl(url: NSURL?, forState state: UIControlState, completion: CompletionClosure?) {
-        setImageWithUrl(url, forState: state, placeHolder: nil, cacheType: .Automatic, completion: completion)
+    func setImageWithUrl(_ url: URL?, forState state: UIControlState, completion: CompletionClosure?) {
+        setImageWithUrl(url, forState: state, placeHolder: nil, cacheType: .automatic, completion: completion)
     }
     
-    func setImageWithUrl(url: NSURL?, forState state: UIControlState, placeHolder: UIImage?) {
-        setImageWithUrl(url, forState: state, placeHolder: placeHolder, cacheType: .Automatic, completion: nil)
+    func setImageWithUrl(_ url: URL?, forState state: UIControlState, placeHolder: UIImage?) {
+        setImageWithUrl(url, forState: state, placeHolder: placeHolder, cacheType: .automatic, completion: nil)
     }
     
-    func setImageWithUrl(url: NSURL?, forState state: UIControlState, placeHolder: UIImage?, completion: CompletionClosure?) {
-        setImageWithUrl(url, forState: state, placeHolder: placeHolder, cacheType: .Automatic, completion: completion)
+    func setImageWithUrl(_ url: URL?, forState state: UIControlState, placeHolder: UIImage?, completion: CompletionClosure?) {
+        setImageWithUrl(url, forState: state, placeHolder: placeHolder, cacheType: .automatic, completion: completion)
     }
     
-    func setImageWithUrl(url: NSURL?, forState state: UIControlState, placeHolder: UIImage?, cacheType: CacheType, requestModification: RequestModificationClosure? = nil, completion: CompletionClosure?) {
+    func setImageWithUrl(_ url: URL?, forState state: UIControlState, placeHolder: UIImage?, cacheType: CacheType, requestModification: RequestModificationClosure? = nil, completion: CompletionClosure?) {
         let downloader = Vincent.sharedInstance
         downloader.invalidate(self.downloadTaskIdentifier)
         
         if let placeHolder = placeHolder {
-            setImage(placeHolder, forState: state)
+            setImage(placeHolder, for: state)
         } else {
-            setImage(downloader.retrieveCachedImageForUrl(url), forState: state)
+            setImage(downloader.retrieveCachedImageForUrl(url), for: state)
         }
         
         guard let url = url else {return}
@@ -183,14 +183,14 @@ public extension UIButton {
         self.downloadTaskIdentifier = Vincent.sharedInstance.downloadImageFromUrl(url, cacheType: cacheType, requestModification: requestModification) { [weak self] image, error in
             self?.downloadTaskIdentifier = nil
             guard let image = image else {
-                dispatch_async(dispatch_get_main_queue(), {
+                DispatchQueue.main.async(execute: {
                     completion?(image: nil, error: error)
                 })
                 return
             }
         
-            dispatch_async(dispatch_get_main_queue(), {
-                self?.setImage(image, forState: state)
+            DispatchQueue.main.async(execute: {
+                self?.setImage(image, for: state)
                 completion?(image: image, error: nil)
             })
         }

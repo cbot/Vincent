@@ -10,7 +10,7 @@ import CryptoSwift
 public typealias CompletionClosure = (image: UIImage?, error: NSError?) -> Void
 
 /// A closure type that allows the modification of a Request object
-public typealias RequestModificationClosure = (request: Request) -> Void
+public typealias RequestModificationClosure = (request: DownloadRequest) -> Void
 
 /**
  The different kind of options for cache handling when making requests
@@ -21,10 +21,10 @@ public typealias RequestModificationClosure = (request: Request) -> Void
  - Protocol:      ALWAYS creates a download task, cache headers decide if a request is actually made
  */
 @objc public enum CacheType: Int {
-    case Automatic
-    case ForceCache
-    case ForceDownload
-    case Protocol
+    case automatic
+    case forceCache
+    case forceDownload
+    case `protocol`
 }
 
 /// The main Vincent class that handles downloading and caching
@@ -42,7 +42,7 @@ public typealias RequestModificationClosure = (request: Request) -> Void
     public var timeoutInterval = 30.0
     
     /// The amount of time after which a cached image is considered stale. The default value is 1 day.
-    public var cacheInvalidationTimeout: NSTimeInterval = 1 * 24 * 3600
+    public var cacheInvalidationTimeout: TimeInterval = 1 * 24 * 3600
     
     /// The amount of memory to use for the memory cache
     public var memoryCacheSize: Int = 64 * 1024 * 1024 {
@@ -53,21 +53,21 @@ public typealias RequestModificationClosure = (request: Request) -> Void
 
     private var downloader = Dowloader()
 
-    private(set) var diskCacheFolderUrl: NSURL
+    private(set) var diskCacheFolderUrl: URL
     
-    private lazy var memoryCache: NSCache = {
-        var cache = NSCache()
+    private lazy var memoryCache: Cache<NSString, VincentCacheEntry> = {
+        var cache = Cache<NSString, VincentCacheEntry>()
         cache.totalCostLimit = self.memoryCacheSize
         return cache
     }()
     
-    private lazy var keyCache: NSCache = {
-        var cache = NSCache()
+    private lazy var keyCache: Cache<NSString, NSString> = {
+        var cache = Cache<NSString, NSString>()
         cache.countLimit = 512
         return cache
     }()
     
-    private var diskCacheSemaphore = dispatch_semaphore_create(1);
+    private var diskCacheSemaphore = DispatchSemaphore(value: 1);
     private var globalRequestHeaders = VincentGlobalHeaders()
     private var globalCredentials = VincentGlobalCredentials()
     private var trustsAllCertificates = false
@@ -79,15 +79,15 @@ public typealias RequestModificationClosure = (request: Request) -> Void
     - parameter identifier: The identifier for this instance. This is used for disk caching.
     */
     public init(identifier: String) {
-        let cachesDirectory = NSSearchPathForDirectoriesInDomains(.CachesDirectory, .UserDomainMask, true).first!
-        diskCacheFolderUrl = NSURL(fileURLWithPath: cachesDirectory).URLByAppendingPathComponent(identifier, isDirectory: false)
+        let cachesDirectory = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true).first!
+        diskCacheFolderUrl = try! URL(fileURLWithPath: cachesDirectory).appendingPathComponent(identifier, isDirectory: false)
         do {
-            try NSFileManager.defaultManager().createDirectoryAtURL(diskCacheFolderUrl, withIntermediateDirectories: true, attributes: nil)
+            try FileManager.default.createDirectory(at: diskCacheFolderUrl, withIntermediateDirectories: true, attributes: nil)
         } catch let error {
             print("Vincent: unable to create disk cache folder: \(error)")
         }
         super.init()
-        NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(appWillResignActive(_:)), name: UIApplicationWillResignActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(appWillResignActive(_:)), name: NSNotification.Name.UIApplicationWillResignActive, object: nil)
     }
     
     // MARK: - Public methods
@@ -103,18 +103,19 @@ public typealias RequestModificationClosure = (request: Request) -> Void
     
     - returns: A request identifier that can be used to cancel the request
     */
-    public func downloadImageFromUrl(url: NSURL, cacheType: CacheType, callErrorOnCancel: Bool = false, requestDone requestDoneBlock: (() -> ())? = nil, requestModification: RequestModificationClosure? = nil, completion: CompletionClosure?) -> String {
+    @discardableResult
+    public func downloadImageFromUrl(_ url: URL, cacheType: CacheType, callErrorOnCancel: Bool = false, requestDone requestDoneBlock: (() -> ())? = nil, requestModification: RequestModificationClosure? = nil, completion: CompletionClosure?) -> String {
         
-        let identifier = NSUUID().UUIDString
-        let cacheKey = transformUrlToCacheKey(url.absoluteString)
+        let identifier = UUID().uuidString
+        let cacheKey = transformUrlToCacheKey(url.absoluteString!)
         
         let action = { (image: UIImage?) in
             if image != nil {
                 requestDoneBlock?()
                 completion?(image: image, error: nil)
                 return
-            } else if url.fileURL {
-                if let data = NSData(contentsOfURL: url), image = UIImage(data: data) {
+            } else if url.isFileURL {
+                if let data = try? Data(contentsOf: url), let image = UIImage(data: data) {
                     self.cacheImage(image, key: cacheKey, tempImageFile: url, memCacheOnly: true)
                     requestDoneBlock?()
                     completion?(image: image, error: nil)
@@ -124,14 +125,14 @@ public typealias RequestModificationClosure = (request: Request) -> Void
                 }
                 return
             } else {
-                let request = self.downloader.request(url, cachePolicy: cacheType == .ForceDownload ? .ReloadIgnoringLocalCacheData : .UseProtocolCachePolicy, timeoutInterval: self.timeoutInterval)
+                let request = self.downloader.request(url, cachePolicy: cacheType == .forceDownload ? .reloadIgnoringLocalCacheData : .useProtocolCachePolicy, timeoutInterval: self.timeoutInterval)
                 request.setCustomIdentifier(identifier)
                 request.header("Accept", withValue: "image/*, */*; q=0.5")
                 for (key, value) in self.globalRequestHeaders.headersForHost(url.host) {
                     request.header(key, withValue: value)
                 }
                 
-                if let credentials = self.globalCredentials.credentialsForHost(url.host), user = credentials.user, password = credentials.password {
+                if let credentials = self.globalCredentials.credentialsForHost(url.host), let user = credentials.user, let password = credentials.password {
                     request.credentials(user: user, password: password)
                 }
                 
@@ -152,7 +153,7 @@ public typealias RequestModificationClosure = (request: Request) -> Void
                                 completion?(image: nil, error: error)
                             }
                         } else {
-                            guard let tmpImageUrl = tmpImageUrl, data = NSData(contentsOfURL: tmpImageUrl) else {
+                            guard let tmpImageUrl = tmpImageUrl, let data = try? Data(contentsOf: tmpImageUrl) else {
                                 completion?(image: nil, error: error ?? NSError(domain: "Vincent", code: -3, userInfo: [NSLocalizedDescriptionKey: "download error"]))
                                 return
                             }
@@ -175,11 +176,11 @@ public typealias RequestModificationClosure = (request: Request) -> Void
             }
         }
         
-        if cacheType == .ForceCache {
+        if cacheType == .forceCache {
             retrieveCachedImageForKey(cacheKey, ignoreLastAccessed: true, completion: { image in
                 action(image)
             })
-        } else if cacheType == .Automatic {
+        } else if cacheType == .automatic {
             retrieveCachedImageForKey(cacheKey, ignoreLastAccessed: false, completion: { image in
                 action(image)
             })
@@ -197,7 +198,7 @@ public typealias RequestModificationClosure = (request: Request) -> Void
      - parameter name:  the header's name
      - parameter host:  if given, the header is only set for requests to the specific host
      */
-    public func setGlobalHeaderValue(value: String?, forHeaderWithName name: String, forHost host: String? = nil) {
+    public func setGlobalHeaderValue(_ value: String?, forHeaderWithName name: String, forHost host: String? = nil) {
         globalRequestHeaders.setHeader(name, value: value, forHost: host)
     }
     
@@ -207,7 +208,7 @@ public typealias RequestModificationClosure = (request: Request) -> Void
      - parameter credentials: the credentials to be used. Pass nil to remove credentials.
      - parameter host:        if given, the credentials are only set for requests to the specific host
      */
-    public func setGlobalBasicAuthCredentials(credentials: NSURLCredential?, forHost host: String? = nil) {
+    public func setGlobalBasicAuthCredentials(_ credentials: URLCredential?, forHost host: String? = nil) {
         globalCredentials.setCredentials(credentials, forHost: host)
     }
     
@@ -218,9 +219,9 @@ public typealias RequestModificationClosure = (request: Request) -> Void
      - parameter password: the password to be used. Pass nil to remove credentials.
      - parameter host:     if given, the credentials are only set for requests to the specific host
      */
-    public func setGlobalBasicAuthCredentials(user user: String?, password: String?, forHost host: String? = nil) {
-        if let user = user, password = password {
-            globalCredentials.setCredentials(NSURLCredential(user: user, password: password, persistence: .None), forHost: host)
+    public func setGlobalBasicAuthCredentials(user: String?, password: String?, forHost host: String? = nil) {
+        if let user = user, let password = password {
+            globalCredentials.setCredentials(URLCredential(user: user, password: password, persistence: .none), forHost: host)
         } else {
             globalCredentials.setCredentials(nil, forHost: host)
         }
@@ -239,9 +240,9 @@ public typealias RequestModificationClosure = (request: Request) -> Void
      - parameter imageData: the image data to store
      - parameter url:       the URL for this image, this is transformed and used as the cache key
      */
-    public func storeImage(imageData: NSData?, forUrl url: NSURL?) {
+    public func storeImage(_ imageData: Data?, forUrl url: URL?) {
         if let url = url {
-            let cacheKey = transformUrlToCacheKey(url.absoluteString)
+            let cacheKey = transformUrlToCacheKey(url.absoluteString!)
             storeImage(imageData, forKey: cacheKey)
         }
     }
@@ -252,8 +253,8 @@ public typealias RequestModificationClosure = (request: Request) -> Void
      - parameter imageData: the image data to store
      - parameter key:       the cache key to use
      */
-    public func storeImage(imageData: NSData?, forKey key: String?) {
-        if let cacheKey = key, imageData = imageData, image = UIImage(data: imageData), tmpUrl = tmpFileWithData(imageData) {
+    public func storeImage(_ imageData: Data?, forKey key: String?) {
+        if let cacheKey = key, let imageData = imageData, let image = UIImage(data: imageData), let tmpUrl = tmpFileWithData(imageData) {
             cacheImage(image, key: cacheKey, tempImageFile: tmpUrl, memCacheOnly: false)
         }
     }
@@ -265,14 +266,14 @@ public typealias RequestModificationClosure = (request: Request) -> Void
      
      - returns: an instance of UIImage or nil
      */
-    public func retrieveCachedImageForKey(key: String?) -> UIImage? {
+    public func retrieveCachedImageForKey(_ key: String?) -> UIImage? {
         if let cacheKey = key {
             return retrieveCachedImageForKey(cacheKey, ignoreLastAccessed: true)
         }
         return nil
     }
     
-    public func retrieveCachedImageForKey(key: String?, completion: (image: UIImage?) -> ()) {
+    public func retrieveCachedImageForKey(_ key: String?, completion: (image: UIImage?) -> ()) {
         if let cacheKey = key {
             retrieveCachedImageForKey(cacheKey, ignoreLastAccessed: true, completion: completion)
         } else {
@@ -287,17 +288,17 @@ public typealias RequestModificationClosure = (request: Request) -> Void
      
      - returns: an instance of UIImage or nil
      */
-    public func retrieveCachedImageForUrl(url: NSURL?) -> UIImage? {
+    public func retrieveCachedImageForUrl(_ url: URL?) -> UIImage? {
         if let url = url {
-            let cacheKey = transformUrlToCacheKey(url.absoluteString)
+            let cacheKey = transformUrlToCacheKey(url.absoluteString!)
             return retrieveCachedImageForKey(cacheKey)
         }
         return nil
     }
     
-    public func retrieveCachedImageForUrl(url: NSURL?, completion: (image: UIImage?) -> ()) {
+    public func retrieveCachedImageForUrl(_ url: URL?, completion: (image: UIImage?) -> ()) {
         if let url = url {
-            let cacheKey = self.transformUrlToCacheKey(url.absoluteString)
+            let cacheKey = self.transformUrlToCacheKey(url.absoluteString!)
             retrieveCachedImageForKey(cacheKey, completion: completion)
         } else {
             completion(image: nil)
@@ -309,9 +310,9 @@ public typealias RequestModificationClosure = (request: Request) -> Void
      
      - parameter url: the URL for the image to be deleted
      */
-    public func deleteCachedImageForUrl(url: NSURL?) {
+    public func deleteCachedImageForUrl(_ url: URL?) {
         if let url = url {
-            let cacheKey = transformUrlToCacheKey(url.absoluteString)
+            let cacheKey = transformUrlToCacheKey(url.absoluteString!)
             deleteCachedImageForKey(cacheKey)
         }
     }
@@ -321,7 +322,7 @@ public typealias RequestModificationClosure = (request: Request) -> Void
      
      - parameter downloadIdentifier: the download identifier whose associated download should be invalidated
      */
-    public func invalidate(downloadIdentifier: String?) {
+    public func invalidate(_ downloadIdentifier: String?) {
         if let downloadIdentifier = downloadIdentifier {
             downloader.invalidateRequest(downloadIdentifier)
         }
@@ -332,20 +333,20 @@ public typealias RequestModificationClosure = (request: Request) -> Void
      
      - parameter downloadIdentifier: the download identifier whose associated download should be canceled
      */
-    public func cancel(downloadIdentifier: String?) {
+    public func cancel(_ downloadIdentifier: String?) {
         if let downloadIdentifier = downloadIdentifier {
             downloader.cancelRequest(downloadIdentifier)
         }
     }
     
     // MARK: - Caching
-    private func cacheImage(image: UIImage, key: String, tempImageFile: NSURL, memCacheOnly: Bool) {
+    private func cacheImage(_ image: UIImage, key: String, tempImageFile: URL, memCacheOnly: Bool) {
         var fileSize: Int
         
         if let path = tempImageFile.path {
             do {
-                let attributes = try NSFileManager.defaultManager().attributesOfItemAtPath(path)
-                fileSize = (attributes[NSFileSize] as? NSNumber ?? 0).integerValue
+                let attributes = try FileManager.default.attributesOfItem(atPath: path)
+                fileSize = (attributes[FileAttributeKey.size] as? NSNumber ?? 0).intValue
             } catch {
                 fileSize = 0
             }
@@ -353,7 +354,7 @@ public typealias RequestModificationClosure = (request: Request) -> Void
             fileSize = 0
         }
         
-        let cacheEntry = VincentCacheEntry(cacheKey: key, image: image, lastAccessed: NSDate(), fileSize: fileSize)
+        let cacheEntry = VincentCacheEntry(cacheKey: key, image: image, lastAccessed: Date(), fileSize: fileSize)
         
         // mem cache
         memoryCache.setObject(cacheEntry, forKey: key, cost: fileSize)
@@ -364,19 +365,19 @@ public typealias RequestModificationClosure = (request: Request) -> Void
         }
     }
     
-    private func retrieveCachedImageForKey(key: String?, ignoreLastAccessed: Bool, completion: (image: UIImage?) -> ()) {
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)) {
+    private func retrieveCachedImageForKey(_ key: String?, ignoreLastAccessed: Bool, completion: (image: UIImage?) -> ()) {
+        DispatchQueue.global(attributes: DispatchQueue.GlobalAttributes.qosDefault).async {
             let image = self.retrieveCachedImageForKey(key, ignoreLastAccessed: ignoreLastAccessed)
             
-            dispatch_async(dispatch_get_main_queue(), { 
+            DispatchQueue.main.async(execute: { 
                 completion(image: image)
             })
         }
     }
     
-    private func retrieveCachedImageForKey(key: String?, ignoreLastAccessed: Bool) -> UIImage? {
+    private func retrieveCachedImageForKey(_ key: String?, ignoreLastAccessed: Bool) -> UIImage? {
         if let key = key {
-            var cacheEntry = memoryCache.objectForKey(key) as? VincentCacheEntry
+            var cacheEntry = memoryCache.object(forKey: key)
             
             if cacheEntry == nil && useDiskCache {
                 cacheEntry = loadCacheEntryFromDiskForKey(key)
@@ -386,12 +387,12 @@ public typealias RequestModificationClosure = (request: Request) -> Void
                 }
             }
             
-            if let cacheEntry = cacheEntry where cacheEntry.lastAccessed.timeIntervalSinceDate(NSDate()) < -cacheInvalidationTimeout {
+            if let cacheEntry = cacheEntry, cacheEntry.lastAccessed.timeIntervalSince(Date()) < -cacheInvalidationTimeout {
                 // stale
                 deleteCachedImageForKey(key)
                 return nil
             } else {
-                cacheEntry?.lastAccessed = NSDate()
+                cacheEntry?.lastAccessed = Date()
                 if useDiskCache {
                     saveCacheEntryToDisk(cacheEntry, tempImageFile: nil, forKey: key)
                 }
@@ -402,40 +403,40 @@ public typealias RequestModificationClosure = (request: Request) -> Void
         }
     }
     
-    private func deleteCachedImageForKey(key: String?) {
+    private func deleteCachedImageForKey(_ key: String?) {
         if let key = key {
-            memoryCache.removeObjectForKey(key)
+            memoryCache.removeObject(forKey: key)
             if useDiskCache {
                 saveCacheEntryToDisk(nil, tempImageFile: nil, forKey: key)
             }
         }
     }
     
-    private func loadCacheEntryFromDiskForKey(key: String?) -> VincentCacheEntry? {
+    private func loadCacheEntryFromDiskForKey(_ key: String?) -> VincentCacheEntry? {
         if let key = key {
-            let url = diskCacheFolderUrl.URLByAppendingPathComponent(key, isDirectory: false)
+            let url = try! diskCacheFolderUrl.appendingPathComponent(key, isDirectory: false)
             if let path = url.path {
-                dispatch_semaphore_wait(self.diskCacheSemaphore, DISPATCH_TIME_FOREVER)
+                let _ = self.diskCacheSemaphore.wait(timeout: DispatchTime.distantFuture)
                 
                 defer {
-                    dispatch_semaphore_signal(self.diskCacheSemaphore)
+                    self.diskCacheSemaphore.signal()
                 }
                 
-                if NSFileManager.defaultManager().fileExistsAtPath(path) {
+                if FileManager.default.fileExists(atPath: path) {
                     var lastAccess : AnyObject?
                     do {
-                        try url.getResourceValue(&lastAccess, forKey: NSURLContentAccessDateKey)
+                        try (url as NSURL).getResourceValue(&lastAccess, forKey: URLResourceKey.contentAccessDateKey)
                     } catch {
                         return nil
                     }
                     
-                    if let lastAccess = lastAccess as? NSDate {
+                    if let lastAccess = lastAccess as? Date {
                         let image = UIImage(contentsOfFile: path)
                         if let image = image {
                             var fileSize = 0
                             do {
-                                let attributes = try NSFileManager.defaultManager().attributesOfItemAtPath(path)
-                                fileSize = (attributes[NSFileSize] as? NSNumber ?? 0).integerValue
+                                let attributes = try FileManager.default.attributesOfItem(atPath: path)
+                                fileSize = (attributes[FileAttributeKey.size] as? NSNumber ?? 0).intValue
                             } catch {
                                 return nil
                             }
@@ -450,44 +451,44 @@ public typealias RequestModificationClosure = (request: Request) -> Void
         return nil
     }
     
-    private func saveCacheEntryToDisk(cacheEntry: VincentCacheEntry?, tempImageFile: NSURL?, forKey key: String?) {
+    private func saveCacheEntryToDisk(_ cacheEntry: VincentCacheEntry?, tempImageFile: URL?, forKey key: String?) {
         guard let key = key else {return}
         
-        let url = diskCacheFolderUrl.URLByAppendingPathComponent(key, isDirectory: false)
+        let url = try! diskCacheFolderUrl.appendingPathComponent(key, isDirectory: false)
         
-        dispatch_semaphore_wait(self.diskCacheSemaphore, DISPATCH_TIME_FOREVER);
-        if let tempImageFile = tempImageFile, path = url.path { // store new image
-            if NSFileManager.defaultManager().fileExistsAtPath(path) {
-                try? NSFileManager.defaultManager().removeItemAtURL(url)
+        let _ = self.diskCacheSemaphore.wait(timeout: DispatchTime.distantFuture);
+        if let tempImageFile = tempImageFile, let path = url.path { // store new image
+            if FileManager.default.fileExists(atPath: path) {
+                let _ = try? FileManager.default.removeItem(at: url)
             }
-            _ = try? NSFileManager.defaultManager().copyItemAtURL(tempImageFile, toURL: url)
+            _ = try? FileManager.default.copyItem(at: tempImageFile, to: url)
         } else if let cacheEntry = cacheEntry { // update image access date
-            _ = try? url.setResourceValue(cacheEntry.lastAccessed, forKey: NSURLContentAccessDateKey)
+            _ = try? (url as NSURL).setResourceValue(cacheEntry.lastAccessed, forKey: URLResourceKey.contentAccessDateKey)
         } else { // delete image
-            _ = try? NSFileManager.defaultManager().removeItemAtURL(url)
+            _ = try? FileManager.default.removeItem(at: url)
         }
-        dispatch_semaphore_signal(self.diskCacheSemaphore)
+        self.diskCacheSemaphore.signal()
     }
     
     // MARK: - Utility
-    private func validateResponse(response: NSURLResponse?) throws {
-        guard let response = response as? NSHTTPURLResponse else {
+    private func validateResponse(_ response: URLResponse?) throws {
+        guard let response = response as? HTTPURLResponse else {
             throw NSError(domain: "Vincent", code: 1, userInfo: [NSLocalizedDescriptionKey: "unexpected response"])
         }
         
         if response.statusCode >= 400 {
-            throw NSError(domain: "Vincent", code: response.statusCode, userInfo: [NSLocalizedDescriptionKey: NSHTTPURLResponse.localizedStringForStatusCode(response.statusCode)])
+            throw NSError(domain: "Vincent", code: response.statusCode, userInfo: [NSLocalizedDescriptionKey: HTTPURLResponse.localizedString(forStatusCode: response.statusCode)])
         }
         
-        if let mimeType = response.MIMEType {
+        if let mimeType = response.mimeType {
             if !mimeType.hasPrefix("image/") {
                 throw NSError(domain: "Vincent", code: -1, userInfo: [NSLocalizedDescriptionKey: "invalid mime type"])
             }
         }
     }
     
-    private func transformUrlToCacheKey(url: String) -> String {
-        if let key = keyCache.objectForKey(url) as? String {
+    private func transformUrlToCacheKey(_ url: String) -> String {
+        if let key = keyCache.object(forKey: url) as? String {
             return key
         } else {
             let key = url.md5()
@@ -496,10 +497,10 @@ public typealias RequestModificationClosure = (request: Request) -> Void
         }
     }
     
-    private func tmpFileWithData(data: NSData) -> NSURL? {
-        let uuid = NSUUID().UUIDString
-        let tmpFileUrl = NSURL(fileURLWithPath: NSTemporaryDirectory()).URLByAppendingPathComponent(uuid)
-        if data.writeToURL(tmpFileUrl, atomically: true) {
+    private func tmpFileWithData(_ data: Data) -> URL? {
+        let uuid = UUID().uuidString
+        let tmpFileUrl = try! URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(uuid)
+        if (try? data.write(to: tmpFileUrl, options: [.atomic])) != nil {
             return tmpFileUrl
         } else {
             return nil
@@ -511,16 +512,16 @@ public typealias RequestModificationClosure = (request: Request) -> Void
         guard let path = diskCacheFolderUrl.path else {return}
         
         do {
-            let filesArray = try NSFileManager.defaultManager().contentsOfDirectoryAtPath(path)
-            let now = NSDate()
+            let filesArray = try FileManager.default.contentsOfDirectory(atPath: path)
+            let now = Date()
             for file in filesArray {
-                let url : NSURL = diskCacheFolderUrl.URLByAppendingPathComponent(file, isDirectory: false)
+                let url : URL = try! diskCacheFolderUrl.appendingPathComponent(file, isDirectory: false)
                 var lastAccess : AnyObject?
                 do {
-                    try url.getResourceValue(&lastAccess, forKey: NSURLContentAccessDateKey)
-                    if let lastAccess = lastAccess as? NSDate {
-                        if (now.timeIntervalSinceDate(lastAccess) > 30 * 24 * 3600) {
-                            try NSFileManager.defaultManager().removeItemAtURL(url)
+                    try (url as NSURL).getResourceValue(&lastAccess, forKey: URLResourceKey.contentAccessDateKey)
+                    if let lastAccess = lastAccess as? Date {
+                        if (now.timeIntervalSince(lastAccess) > 30 * 24 * 3600) {
+                            try FileManager.default.removeItem(at: url)
                         }
                     }
                 } catch {
@@ -532,13 +533,13 @@ public typealias RequestModificationClosure = (request: Request) -> Void
     }
     
     // MARK: - Notifications
-    internal func appWillResignActive(notification: NSNotification) {
+    internal func appWillResignActive(_ notification: Notification) {
         cleanup()
     }
     
     // MARK: - Memory
     deinit {
-        NSNotificationCenter.defaultCenter().removeObserver(self)
+        NotificationCenter.default.removeObserver(self)
         cleanup()
     }
 }
@@ -546,11 +547,11 @@ public typealias RequestModificationClosure = (request: Request) -> Void
 // MARK: - VincentCacheEntry
 private class VincentCacheEntry: NSObject {
     var image : UIImage
-    var lastAccessed : NSDate
+    var lastAccessed : Date
     var cacheKey : String
     var fileSize : Int
     
-    init(cacheKey: String, image: UIImage, lastAccessed: NSDate, fileSize: Int) {
+    init(cacheKey: String, image: UIImage, lastAccessed: Date, fileSize: Int) {
         self.cacheKey = cacheKey
         self.image = image
         self.lastAccessed = lastAccessed
@@ -564,7 +565,7 @@ private class VincentGlobalHeaders {
     private var allHostsHeaders = [String: String]()
     private var specificHostHeaders = [String: [String: String]]()
     
-    func setHeader(name: String, value: String?, forHost host: String?) {
+    func setHeader(_ name: String, value: String?, forHost host: String?) {
         if let host = host {
             var headers = specificHostHeaders[host] ?? [String: String]()
             headers[name] = value
@@ -574,7 +575,7 @@ private class VincentGlobalHeaders {
         }
     }
     
-    func setHeaders(headers: [String: String], forHost host: String?) {
+    func setHeaders(_ headers: [String: String], forHost host: String?) {
         if let host = host {
             specificHostHeaders[host] = headers
         } else {
@@ -582,7 +583,7 @@ private class VincentGlobalHeaders {
         }
     }
     
-    func headersForHost(host: String?) -> [String: String] {
+    func headersForHost(_ host: String?) -> [String: String] {
         if let host = host {
             if let specificHeaders = specificHostHeaders[host] {
                 return specificHeaders.reduce(allHostsHeaders) { (dict, e) in
@@ -601,10 +602,10 @@ private class VincentGlobalHeaders {
 
 // MARK: - VincentGlobalCredentials
 private class VincentGlobalCredentials {
-    private var allHostsCredentials: NSURLCredential?
-    private var specificHostCredentials = [String: NSURLCredential]()
+    private var allHostsCredentials: URLCredential?
+    private var specificHostCredentials = [String: URLCredential]()
     
-    func setCredentials(credentials: NSURLCredential?, forHost host: String?) {
+    func setCredentials(_ credentials: URLCredential?, forHost host: String?) {
         if let host = host {
             specificHostCredentials[host] = credentials
         } else {
@@ -612,7 +613,7 @@ private class VincentGlobalCredentials {
         }
     }
     
-    func credentialsForHost(host: String?) -> NSURLCredential? {
+    func credentialsForHost(_ host: String?) -> URLCredential? {
         if let host = host {
             if let specificCredentials = specificHostCredentials[host] {
                 return specificCredentials

@@ -30,7 +30,7 @@ public class VincentImageView: UIImageView {
             activityIndicator.backgroundColor = newValue
         }
         get {
-            return activityIndicator.backgroundColor ?? UIColor.clearColor()
+            return activityIndicator.backgroundColor ?? UIColor.clear()
         }
     }
     
@@ -69,13 +69,13 @@ public class VincentImageView: UIImageView {
         activityIndicator.translatesAutoresizingMaskIntoConstraints = false
         addSubview(activityIndicator)
         
-        spinnerWidthConstraint = NSLayoutConstraint(item: activityIndicator, attribute: .Width, relatedBy: .Equal, toItem: nil, attribute: .NotAnAttribute, multiplier: 1, constant: spinnerSize)
-        spinnerHeightConstraint = NSLayoutConstraint(item: activityIndicator, attribute: .Height, relatedBy: .Equal, toItem: nil, attribute: .NotAnAttribute, multiplier: 1, constant: spinnerSize)
+        spinnerWidthConstraint = NSLayoutConstraint(item: activityIndicator, attribute: .width, relatedBy: .equal, toItem: nil, attribute: .notAnAttribute, multiplier: 1, constant: spinnerSize)
+        spinnerHeightConstraint = NSLayoutConstraint(item: activityIndicator, attribute: .height, relatedBy: .equal, toItem: nil, attribute: .notAnAttribute, multiplier: 1, constant: spinnerSize)
         
         addConstraints([spinnerWidthConstraint, spinnerHeightConstraint].flatMap({$0}))
         
-        addConstraint(NSLayoutConstraint(item: activityIndicator, attribute: .CenterX, relatedBy: .Equal, toItem: self, attribute: .CenterX, multiplier: 1, constant: 0))
-        addConstraint(NSLayoutConstraint(item: activityIndicator, attribute: .CenterY, relatedBy: .Equal, toItem: self, attribute: .CenterY, multiplier: 1, constant: 0))
+        addConstraint(NSLayoutConstraint(item: activityIndicator, attribute: .centerX, relatedBy: .equal, toItem: self, attribute: .centerX, multiplier: 1, constant: 0))
+        addConstraint(NSLayoutConstraint(item: activityIndicator, attribute: .centerY, relatedBy: .equal, toItem: self, attribute: .centerY, multiplier: 1, constant: 0))
     }
 }
 
@@ -95,7 +95,7 @@ public class FadeInImageView: VincentImageView {
                 animation.toValue = 1
                 animation.fillMode = kCAFillModeBoth
                 
-                layer.addAnimation(animation, forKey: "fadeIn")
+                layer.add(animation, forKey: "fadeIn")
             }
         }
     }
@@ -126,11 +126,11 @@ public class ActivityIndicatorView: UIView {
     }
     
     private func setup() {
-        hidden = true
+        isHidden = true
         let shapeLayer = CAShapeLayer()
         shapeLayer.borderWidth = 0
-        shapeLayer.fillColor = UIColor.clearColor().CGColor
-        shapeLayer.strokeColor = tintColor.CGColor
+        shapeLayer.fillColor = UIColor.clear().cgColor
+        shapeLayer.strokeColor = tintColor.cgColor
         shapeLayer.lineWidth = lineWidth
         layer.addSublayer(shapeLayer)
         self.shapeLayer = shapeLayer
@@ -139,12 +139,12 @@ public class ActivityIndicatorView: UIView {
     public override func layoutSubviews() {
         super.layoutSubviews()
         shapeLayer?.frame = bounds
-        shapeLayer?.path = self.layoutPath().CGPath
+        shapeLayer?.path = self.layoutPath().cgPath
     }
     
     public override func tintColorDidChange() {
         super.tintColorDidChange()
-        shapeLayer?.strokeColor = tintColor.CGColor
+        shapeLayer?.strokeColor = tintColor.cgColor
     }
     
     private func layoutPath() -> UIBezierPath {
@@ -156,21 +156,21 @@ public class ActivityIndicatorView: UIView {
     }
     
     public func startAnimating() {
-        if shapeLayer?.animationForKey("spinner") == nil {
+        if shapeLayer?.animation(forKey: "spinner") == nil {
             let animation = CABasicAnimation(keyPath: "transform.rotation")
             animation.toValue = 2 * M_PI
             animation.timingFunction = CAMediaTimingFunction(name: kCAMediaTimingFunctionLinear)
             animation.duration = 1.0
             animation.repeatCount = Float.infinity
-            shapeLayer?.addAnimation(animation, forKey: "spinner")
+            shapeLayer?.add(animation, forKey: "spinner")
         }
         isAnimating = true
-        hidden = false
+        isHidden = false
     }
     
     public func stopAnimating() {
         isAnimating = false
-        shapeLayer?.removeAnimationForKey("spinner")
-        hidden = true
+        shapeLayer?.removeAnimation(forKey: "spinner")
+        isHidden = true
     }
 }

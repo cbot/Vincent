@@ -7,41 +7,41 @@ import Foundation
 
 @objc public class Prefetcher: NSObject {
     private weak var vincent: Vincent?
-    private let queue: NSOperationQueue
+    private let queue: OperationQueue
     public var maxConcurrentOperationCount: Int = 4 {
         didSet {
             queue.maxConcurrentOperationCount = maxConcurrentOperationCount
         }
     }
     public var operationTimeout: Int = 20
-    public var cacheType: CacheType = .Automatic
+    public var cacheType: CacheType = .automatic
     
     init(vincent: Vincent) {
         self.vincent = vincent
-        queue = NSOperationQueue()
+        queue = OperationQueue()
         queue.maxConcurrentOperationCount = maxConcurrentOperationCount
         super.init()
     }
     
-    public func fetchWithString(stringUrl: String?) {
-        if let stringUrl = stringUrl, url = NSURL(string: stringUrl) {
+    public func fetchWithString(_ stringUrl: String?) {
+        if let stringUrl = stringUrl, let url = URL(string: stringUrl) {
             fetchWithUrl(url, completion: nil)
         }
     }
     
-    public func fetchWithUrl(url: NSURL?) {
+    public func fetchWithUrl(_ url: URL?) {
         if let url = url {
             fetchWithUrl(url, completion: nil)
         }
     }
     
-    public func fetchWithString(stringUrl: String?, completion: CompletionClosure?) {
-        if let stringUrl = stringUrl, url = NSURL(string: stringUrl) {
+    public func fetchWithString(_ stringUrl: String?, completion: CompletionClosure?) {
+        if let stringUrl = stringUrl, let url = URL(string: stringUrl) {
             fetchWithUrl(url, completion: completion)
         }
     }
     
-    public func fetchWithUrl(url: NSURL, completion: CompletionClosure?) {
+    public func fetchWithUrl(_ url: URL, completion: CompletionClosure?) {
         var operation: PrefetchOperation
         
         if let existingOperation = operationWithUrl(url) {
@@ -62,10 +62,10 @@ import Foundation
         queue.cancelAllOperations()
     }
     
-    private func operationWithUrl(url: NSURL) -> PrefetchOperation? {
+    private func operationWithUrl(_ url: URL) -> PrefetchOperation? {
         return queue.operations.filter({ o in
             if let o = o as? PrefetchOperation {
-                return !o.cancelled && !o.finished && !o.closuresCalled && o.url == url
+                return !o.isCancelled && !o.isFinished && !o.closuresCalled && o.url == url
             } else {
                 return false
             }
@@ -73,25 +73,26 @@ import Foundation
     }
 }
 
-class PrefetchOperation: NSOperation {
-    private(set) var url: NSURL
+class PrefetchOperation: Operation {
+    private(set) var url: URL
     private weak var prefetcher: Prefetcher?
     private var completionClosures = Array<CompletionClosure>()
-    private var downloadSemaphore = dispatch_semaphore_create(0)
-    private var completionClosuresSemaphore = dispatch_semaphore_create(1)
+    private var downloadSemaphore = DispatchSemaphore(value: 0)
+    private var completionClosuresSemaphore = DispatchSemaphore(value: 1)
     var closuresCalled = false
     
-    init(url: NSURL, prefetcher: Prefetcher) {
+    init(url: URL, prefetcher: Prefetcher) {
         self.url = url
         self.prefetcher = prefetcher
         super.init()
     }
     
-    func addCompletion(completion: CompletionClosure?) -> Bool {
+    @discardableResult
+    func addCompletion(_ completion: CompletionClosure?) -> Bool {
         if let completion = completion {
-            dispatch_semaphore_wait(completionClosuresSemaphore, DISPATCH_TIME_FOREVER)
+            let _ = completionClosuresSemaphore.wait(timeout: DispatchTime.distantFuture)
             defer {
-                dispatch_semaphore_signal(completionClosuresSemaphore)
+                completionClosuresSemaphore.signal()
             }
             
             if closuresCalled {
@@ -106,48 +107,48 @@ class PrefetchOperation: NSOperation {
     
     override func main() {
         super.main()
-        guard let prefetcher = prefetcher, vincent = prefetcher.vincent else {return}
+        guard let prefetcher = prefetcher, let vincent = prefetcher.vincent else {return}
         
         vincent.downloadImageFromUrl(url, cacheType: prefetcher.cacheType) { image, error in
             guard let image = image else {
-                dispatch_semaphore_wait(self.completionClosuresSemaphore, DISPATCH_TIME_FOREVER)
+                let _ = self.completionClosuresSemaphore.wait(timeout: DispatchTime.distantFuture)
                 for completionClosure in self.completionClosures {
-                    dispatch_sync(dispatch_get_main_queue()) {
+                    DispatchQueue.main.sync {
                         completionClosure(image: nil, error: error)
                     }
                 }
                 self.closuresCalled = true
-                dispatch_semaphore_signal(self.completionClosuresSemaphore)
-                dispatch_semaphore_signal(self.downloadSemaphore)
+                self.completionClosuresSemaphore.signal()
+                self.downloadSemaphore.signal()
                 return
             }
             
-            dispatch_semaphore_wait(self.completionClosuresSemaphore, DISPATCH_TIME_FOREVER)
+            let _ = self.completionClosuresSemaphore.wait(timeout: DispatchTime.distantFuture)
             for completionClosure in self.completionClosures {
-                dispatch_sync(dispatch_get_main_queue()) {
+                DispatchQueue.main.sync {
                     completionClosure(image: image, error: nil)
                 }
             }
             self.closuresCalled = true
-            dispatch_semaphore_signal(self.completionClosuresSemaphore)
-            dispatch_semaphore_signal(self.downloadSemaphore)
+            self.completionClosuresSemaphore.signal()
+            self.downloadSemaphore.signal()
         }
         
-        let timeout = dispatch_time(DISPATCH_TIME_NOW, Int64(Double(prefetcher.operationTimeout) * Double(NSEC_PER_SEC)))
-        dispatch_semaphore_wait(downloadSemaphore, timeout)
+        let timeout = DispatchTime.now() + Double(Int64(Double(prefetcher.operationTimeout) * Double(NSEC_PER_SEC))) / Double(NSEC_PER_SEC)
+        let _ = downloadSemaphore.wait(timeout: timeout)
         
-        dispatch_semaphore_wait(self.completionClosuresSemaphore, DISPATCH_TIME_FOREVER)
+        let _ = self.completionClosuresSemaphore.wait(timeout: DispatchTime.distantFuture)
         if !self.closuresCalled {
             let error = NSError(domain: "Vincent", code: -4, userInfo: [NSLocalizedDescriptionKey: "prefetcher timeout"])
             
             for completionClosure in completionClosures {
-                dispatch_sync(dispatch_get_main_queue()) {
+                DispatchQueue.main.sync {
                     completionClosure(image: nil, error: error)
                 }
             }
             completionClosures.removeAll()
             self.closuresCalled = true
         }
-        dispatch_semaphore_signal(self.completionClosuresSemaphore)
+        self.completionClosuresSemaphore.signal()
     }
 }
