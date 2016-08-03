@@ -78,7 +78,7 @@ class Dowloader: NSObject, URLSessionDelegate, URLSessionTaskDelegate, URLSessio
     }
     
     // MARK: - NSURLSessionTaskDelegate
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: NSError?) {
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         // only connection errors are handled here!
         
         for request in requestsForIdentifiers(task.identifiers) {

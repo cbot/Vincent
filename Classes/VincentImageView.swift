@@ -30,7 +30,7 @@ public class VincentImageView: UIImageView {
             activityIndicator.backgroundColor = newValue
         }
         get {
-            return activityIndicator.backgroundColor ?? UIColor.clear()
+            return activityIndicator.backgroundColor ?? UIColor.clear
         }
     }
     
@@ -129,7 +129,7 @@ public class ActivityIndicatorView: UIView {
         isHidden = true
         let shapeLayer = CAShapeLayer()
         shapeLayer.borderWidth = 0
-        shapeLayer.fillColor = UIColor.clear().cgColor
+        shapeLayer.fillColor = UIColor.clear.cgColor
         shapeLayer.strokeColor = tintColor.cgColor
         shapeLayer.lineWidth = lineWidth
         layer.addSublayer(shapeLayer)

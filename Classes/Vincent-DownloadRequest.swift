@@ -22,7 +22,7 @@ public class DownloadRequest {
         self.request = URLRequest(url: url, cachePolicy: cachePolicy, timeoutInterval: timeoutInterval)
         self.request.httpMethod = "GET"
         
-        fingerPrint = url.absoluteString!
+        fingerPrint = url.absoluteString
     }
     
     // MARK: - Public Methods
