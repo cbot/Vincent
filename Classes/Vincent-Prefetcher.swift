@@ -6,7 +6,7 @@
 import Foundation
 
 @objc public class Prefetcher: NSObject {
-    private weak var vincent: Vincent?
+    fileprivate weak var vincent: Vincent?
     private let queue: OperationQueue
     public var maxConcurrentOperationCount: Int = 4 {
         didSet {
@@ -114,7 +114,7 @@ class PrefetchOperation: Operation {
                 let _ = self.completionClosuresSemaphore.wait(timeout: DispatchTime.distantFuture)
                 for completionClosure in self.completionClosures {
                     DispatchQueue.main.sync {
-                        completionClosure(image: nil, error: error)
+                        completionClosure(nil, error)
                     }
                 }
                 self.closuresCalled = true
@@ -126,7 +126,7 @@ class PrefetchOperation: Operation {
             let _ = self.completionClosuresSemaphore.wait(timeout: DispatchTime.distantFuture)
             for completionClosure in self.completionClosures {
                 DispatchQueue.main.sync {
-                    completionClosure(image: image, error: nil)
+                    completionClosure(image, nil)
                 }
             }
             self.closuresCalled = true
@@ -143,7 +143,7 @@ class PrefetchOperation: Operation {
             
             for completionClosure in completionClosures {
                 DispatchQueue.main.sync {
-                    completionClosure(image: nil, error: error)
+                    completionClosure(nil, error)
                 }
             }
             completionClosures.removeAll()

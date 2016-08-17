@@ -97,14 +97,14 @@ public extension UIImageView {
             self?.downloadTaskIdentifier = nil
             guard let image = image else {
                 DispatchQueue.main.async(execute: {
-                    completion?(image: nil, error: error)
+                    completion?(nil, error)
                 })
                 return
             }
             
             DispatchQueue.main.async(execute: {
                 self?.image = image
-                completion?(image: image, error: nil)
+                completion?(image, nil)
             })
         }
     }
@@ -184,14 +184,14 @@ public extension UIButton {
             self?.downloadTaskIdentifier = nil
             guard let image = image else {
                 DispatchQueue.main.async(execute: {
-                    completion?(image: nil, error: error)
+                    completion?(nil, error)
                 })
                 return
             }
         
             DispatchQueue.main.async(execute: {
                 self?.setImage(image, for: state)
-                completion?(image: image, error: nil)
+                completion?(image, nil)
             })
         }
     }

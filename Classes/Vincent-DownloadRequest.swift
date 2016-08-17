@@ -12,7 +12,7 @@ public class DownloadRequest {
     private(set) var trustsAllCertificates = false
     private(set) var credentials: URLCredential?
     private(set) var request: URLRequest
-    private(set) var completionClosure: ((url: URL?, error: NSError?, invalidated: Bool) -> ())?
+    private(set) var completionClosure: ((_ url: URL?, _ error: NSError?, _ invalidated: Bool) -> ())?
     private(set) var identifier = UUID().uuidString
     weak var downloadTask: URLSessionDownloadTask?
     var invalidated = false
@@ -22,7 +22,7 @@ public class DownloadRequest {
         self.request = URLRequest(url: url, cachePolicy: cachePolicy, timeoutInterval: timeoutInterval)
         self.request.httpMethod = "GET"
         
-        fingerPrint = url.absoluteString!
+        fingerPrint = url.absoluteString
     }
     
     // MARK: - Public Methods
@@ -69,7 +69,7 @@ public class DownloadRequest {
     }
     
     @discardableResult
-    func completion(_ completion: (url: URL?, error: NSError?, invalidated: Bool) -> ()) -> DownloadRequest {
+    func completion(_ completion: ((_ url: URL?, _ error: NSError?, _ invalidated: Bool) -> ())) -> DownloadRequest {
         completionClosure = completion
         return self
     }
@@ -78,7 +78,7 @@ public class DownloadRequest {
     func handleFinishedDownload(_ url: URL) {
         if let completionClosure = completionClosure {
             DispatchQueue.main.sync {
-                completionClosure(url: url, error: nil, invalidated: self.invalidated)
+                completionClosure(url, nil, self.invalidated)
             }
         }
     }
@@ -90,7 +90,7 @@ public class DownloadRequest {
         
         if let completionClosure = completionClosure {
             DispatchQueue.main.sync {
-                completionClosure(url: nil, error: error, invalidated: self.invalidated)
+                completionClosure(nil, error, self.invalidated)
             }
         }
     }
