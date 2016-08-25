@@ -4,7 +4,6 @@
 //  Created by Kai Straßmann
 
 import UIKit
-import CommonCrypto
 
 /// A completion closure type that is used throughout this library
 public typealias CompletionClosure = (_ image: UIImage?, _ error: NSError?) -> Void
