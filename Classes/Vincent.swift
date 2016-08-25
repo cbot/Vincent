@@ -81,11 +81,15 @@ public typealias RequestModificationClosure = (_ request: DownloadRequest) -> Vo
     public init(identifier: String) {
         let cachesDirectory = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true).first!
         diskCacheFolderUrl = try! URL(fileURLWithPath: cachesDirectory).appendingPathComponent(identifier, isDirectory: false)
-        do {
-            try FileManager.default.createDirectory(at: diskCacheFolderUrl, withIntermediateDirectories: true, attributes: nil)
-        } catch let error {
-            print("Vincent: unable to create disk cache folder: \(error)")
+
+        if !FileManager.default.fileExists(atPath: diskCacheFolderUrl.path) {
+            do {
+                try FileManager.default.createDirectory(at: diskCacheFolderUrl, withIntermediateDirectories: true, attributes: nil)
+            } catch let error {
+                print("Vincent: unable to create disk cache folder: \(error)")
+            }
         }
+        
         super.init()
         NotificationCenter.default.addObserver(self, selector: #selector(appWillResignActive(_:)), name: NSNotification.Name.UIApplicationWillResignActive, object: nil)
     }
@@ -487,9 +491,11 @@ public typealias RequestModificationClosure = (_ request: DownloadRequest) -> Vo
     
     private func transformUrlToCacheKey(_ url: String) -> String {
         if let key = keyCache.object(forKey: url as NSString) as? String {
+            print("Vincent: 1 \(key)")
             return key
         } else {
-            let key = url.md5()
+            let key = url.djb2()
+            print("Vincent: 2 \(key)")
             keyCache.setObject(key as NSString, forKey: url as NSString)
             return key
         }
@@ -625,32 +631,12 @@ private class VincentGlobalCredentials {
 }
 
 extension String {
-    struct UTF8EncodedString {
-        var data: [CChar]
-        var length: Int
-        
-        init(string:String) {
-            data = string.cString(using: String.Encoding.utf8)!
-            length = string.lengthOfBytes(using: String.Encoding.utf8)
-        }
-    }
-    
-    func md5() -> String {
-        let seed = UTF8EncodedString(string: self)
-        let digestLength = Int(CC_MD5_DIGEST_LENGTH)
-        
-        let result = UnsafeMutablePointer<UInt8>.allocate(capacity: digestLength)
-        
-        CC_MD5(seed.data, CC_LONG(seed.length), result)
-    
-        var hash = ""
-        
-        for i in 0..<digestLength {
-            hash.appendingFormat("%02x", result[i])
+    func djb2() -> String {
+        var hash = 5381
+        for char in characters {
+            hash = ((hash << 5) &+ hash) &+ char.hashValue
         }
         
-        result.deinitialize()
-        
-        return hash
+        return String(Int(hash), radix: 16, uppercase: false)
     }
 }

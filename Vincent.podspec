@@ -10,7 +10,6 @@ Pod::Spec.new do |s|
 
   s.source       = { :git => 'https://github.com/cbot/Vincent.git', :tag => s.version.to_s }
   s.source_files  = 'Classes/*'
-  
-  s.preserve_paths = 'CommonCrypto/*'
-  s.pod_target_xcconfig = { 'SWIFT_VERSION' => '3.0', 'SWIFT_INCLUDE_PATHS' => '$(PODS_ROOT)/Vincent/CommonCrypto' }
+
+  s.pod_target_xcconfig = { 'SWIFT_VERSION' => '3.0'}
 end
