@@ -69,7 +69,7 @@ public class DownloadRequest {
     }
     
     @discardableResult
-    func completion(_ completion: ((_ url: URL?, _ error: NSError?, _ invalidated: Bool) -> ())) -> DownloadRequest {
+    func completion(_ completion: @escaping ((_ url: URL?, _ error: NSError?, _ invalidated: Bool) -> ())) -> DownloadRequest {
         completionClosure = completion
         return self
     }
