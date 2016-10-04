@@ -627,14 +627,3 @@ private class VincentGlobalCredentials {
         }
     }
 }
-
-extension String {
-    func djb2() -> String {
-        var hash = 5381
-        for char in characters {
-            hash = ((hash << 5) &+ hash) &+ char.hashValue
-        }
-        
-        return String(Int(hash), radix: 16, uppercase: false)
-    }
-}
