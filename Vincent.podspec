@@ -10,6 +10,6 @@ Pod::Spec.new do |s|
 
   s.source       = { :git => 'https://github.com/cbot/Vincent.git', :tag => s.version.to_s }
   s.source_files  = 'Classes/*'
-
+  s.dependency 'CryptoSwift', '~> 0.6.0'
   s.pod_target_xcconfig = { 'SWIFT_VERSION' => '3.0'}
 end

@@ -4,6 +4,7 @@
 //  Created by Kai Straßmann
 
 import UIKit
+import CryptoSwift
 
 /// A completion closure type that is used throughout this library
 public typealias CompletionClosure = (_ image: UIImage?, _ error: NSError?) -> Void
@@ -490,11 +491,9 @@ public typealias RequestModificationClosure = (_ request: DownloadRequest) -> Vo
     
     private func transformUrlToCacheKey(_ url: String) -> String {
         if let key = keyCache.object(forKey: url as NSString) as? String {
-            print("Vincent: 1 \(key)")
             return key
         } else {
-            let key = url.djb2()
-            print("Vincent: 2 \(key)")
+            let key = url.md5()
             keyCache.setObject(key as NSString, forKey: url as NSString)
             return key
         }
