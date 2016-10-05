@@ -157,10 +157,10 @@ public typealias RequestModificationClosure = (_ request: URLRequest) -> Void
                         
                         if let image = UIImage(data: data) {
                             self.cache(image: image, key: cacheKey, tempImageFile: tmpUrl, memCacheOnly: false)
-                            if (!operation.invalidated) {
+                            if !operation.invalidated {
                                 completion?(image, nil)
                             }
-                        } else if (!operation.invalidated) {
+                        } else if !operation.invalidated {
                             let error = NSError(domain: "Vincent", code: -2, userInfo:[NSLocalizedDescriptionKey: "unable to decode image"])
                             print(error)
                             completion?(nil, error)
@@ -205,7 +205,10 @@ public typealias RequestModificationClosure = (_ request: URLRequest) -> Void
     }
     
     public func invalidateDownload(identifier: String?) {
-        guard let identifier = identifier else { return }
+        guard let identifier = identifier else {
+            return
+        }
+        
         for operation in operationQueue.operations {
             if let operation = operation as? VincentOperation, operation.identifier == identifier {
                 operation.invalidated = true

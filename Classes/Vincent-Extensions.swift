@@ -73,7 +73,7 @@ public extension UIImageView {
         setImageWithUrl(url, placeHolder: placeHolder, cacheType: .automatic, completion: completion)
     }
     
-    func setImageWithUrl(_ url: URL?, placeHolder: UIImage?, cacheType: CacheType, requestModification: RequestModificationClosure? = nil, completion: CompletionClosure?) {
+    func setImageWithUrl(_ url: URL?, placeHolder: UIImage?, cacheType: CacheType, requestModification: RequestModificationClosure? = nil, completion: CompletionClosure?) {        
         Vincent.sharedInstance.invalidateDownload(identifier: self.downloadTaskIdentifier)
         
         if let placeHolder = placeHolder {
@@ -84,16 +84,13 @@ public extension UIImageView {
         
         guard let url = url else { return }
         
-        DispatchQueue.main.async {
-            self.numRequests += 1
-        }
+        self.numRequests += 1
         
         self.downloadTaskIdentifier = Vincent.sharedInstance.downloadImageFromUrl(url, cacheType: cacheType, requestDone: { [weak self] in
             DispatchQueue.main.async {
                 self?.numRequests -= 1
             }
         }, requestModification: requestModification) { [weak self] image, error in
-            self?.downloadTaskIdentifier = nil
             guard let image = image else {
                 DispatchQueue.main.async(execute: {
                     completion?(nil, error)
@@ -110,12 +107,10 @@ public extension UIImageView {
     
     func cancelImageDownload() {
         Vincent.sharedInstance.cancelDownload(identifier: self.downloadTaskIdentifier)
-        self.downloadTaskIdentifier = nil
     }
     
     func invalidateImageDownload() {
         Vincent.sharedInstance.invalidateDownload(identifier: self.downloadTaskIdentifier)
-        self.downloadTaskIdentifier = nil
     }
 }
 
@@ -180,7 +175,6 @@ public extension UIButton {
         guard let url = url else {return}
         
         self.downloadTaskIdentifier = Vincent.sharedInstance.downloadImageFromUrl(url, cacheType: cacheType, requestModification: requestModification) { [weak self] image, error in
-            self?.downloadTaskIdentifier = nil
             guard let image = image else {
                 DispatchQueue.main.async(execute: {
                     completion?(nil, error)
@@ -197,11 +191,9 @@ public extension UIButton {
     
     func cancelImageDownload() {
         Vincent.sharedInstance.cancelDownload(identifier: self.downloadTaskIdentifier)
-        self.downloadTaskIdentifier = nil
     }
     
     func invalidateImageDownload() {
         Vincent.sharedInstance.invalidateDownload(identifier: self.downloadTaskIdentifier)
-        self.downloadTaskIdentifier = nil
     }
 }
