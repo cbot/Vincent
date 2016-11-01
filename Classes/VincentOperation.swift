@@ -1,20 +1,6 @@
-//
-//  BaseOperation.swift
-//  VWService
-//
-//  Created by Kai Straßmann on 06.11.15.
-//  Copyright © 2015 Volkswagen AG. All rights reserved.
-//
-
 import Foundation
 
-public enum VincentOperationResult {
-    case successful(tmpUrl: URL)
-    case failed(error: Error)
-    case canceled
-}
-
-public typealias VincentOperationCompletionBlock = (_ operation: VincentOperation, _ result: VincentOperationResult) -> ()
+public typealias VincentOperationCompletionBlock = (_ operation: VincentOperation, _ result: VincentDownloadCompletionType) -> ()
 
 public class VincentOperation: Operation, URLSessionDelegate, URLSessionTaskDelegate, URLSessionDataDelegate, URLSessionDownloadDelegate {
     public var invalidated = false
@@ -22,6 +8,7 @@ public class VincentOperation: Operation, URLSessionDelegate, URLSessionTaskDele
     public var credentials: URLCredential? = nil
     
     public let identifier: String
+    private let finishedCallbackQueue: DispatchQueue
     
     // the request to be made
     private let urlRequest: URLRequest
@@ -86,10 +73,11 @@ public class VincentOperation: Operation, URLSessionDelegate, URLSessionTaskDele
     }
     
     // MARK:
-    public init(urlRequest request: URLRequest, identifier id: String, downloadFinishedBlock: @escaping VincentOperationCompletionBlock) {
+    public init(urlRequest request: URLRequest, identifier id: String, callbackQueue: DispatchQueue, downloadFinishedBlock:  @escaping VincentOperationCompletionBlock) {
         urlRequest = request
         identifier = id
         finishedBlock = downloadFinishedBlock
+        finishedCallbackQueue = callbackQueue
         super.init()
     }
     
@@ -98,6 +86,7 @@ public class VincentOperation: Operation, URLSessionDelegate, URLSessionTaskDele
         let configuration = URLSessionConfiguration.default
         configuration.httpMaximumConnectionsPerHost = 10
         configuration.httpShouldUsePipelining = true
+        
         let urlSession = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
         self.urlSession = urlSession
         let task = urlSession.downloadTask(with: urlRequest)
@@ -109,9 +98,19 @@ public class VincentOperation: Operation, URLSessionDelegate, URLSessionTaskDele
         guard let response = downloadTask.response as? HTTPURLResponse else { return }
         
         if (200...299).contains(response.statusCode) {
-            finishedBlock(self, .successful(tmpUrl: location))
+            if let data = try? Data(contentsOf: location), let image = UIImage(data: data) {
+                finishedCallbackQueue.async {
+                    self.finishedBlock(self, .success(image: image, data: data))
+                }
+            } else {
+                finishedCallbackQueue.async {
+                    self.finishedBlock(self, .error(error: NSError(domain: "VincentOperation", code: 0, userInfo: [NSLocalizedDescriptionKey: "unable to decode image"])))
+                }
+            }
         } else {
-            finishedBlock(self, .failed(error: NSError(domain: "VincentOperation", code: response.statusCode, userInfo: [NSLocalizedDescriptionKey: "unexepected status code \(response.statusCode)"])))
+            finishedCallbackQueue.async {
+                self.finishedBlock(self, .error(error: NSError(domain: "VincentOperation", code: response.statusCode, userInfo: [NSLocalizedDescriptionKey: "unexepected status code \(response.statusCode)"])))
+            }
         }
     }
     
@@ -119,9 +118,12 @@ public class VincentOperation: Operation, URLSessionDelegate, URLSessionTaskDele
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         // only connection errors are handled here!
         if let error = error {
-            finishedBlock(self, .failed(error: error))
+            finishedCallbackQueue.async {
+                self.finishedBlock(self, .error(error: error as NSError))
+            }
         }
         
+        urlSession?.invalidateAndCancel()
         state = .finished
     }
     
@@ -145,10 +147,10 @@ public class VincentOperation: Operation, URLSessionDelegate, URLSessionTaskDele
 
     // MARK: - Utility
     public override func cancel() {
-        super.cancel()
         invalidated = true
         urlSession?.invalidateAndCancel()
         finishedBlock(self, .canceled)
+        super.cancel()
         state = .finished
     }
     
@@ -167,11 +169,5 @@ public class VincentOperation: Operation, URLSessionDelegate, URLSessionTaskDele
         } else {
             completionBlock = block
         }
-    }
-    
-    // MARK: - Memory
-    deinit {
-        // we're done with our session
-        urlSession?.invalidateAndCancel()
     }
 }

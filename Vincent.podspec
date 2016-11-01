@@ -6,10 +6,10 @@ Pod::Spec.new do |s|
   s.license      = 'MIT'
   s.author       = { 'Kai Straßmann' => 'derkai@gmail.com' }
   
-  s.platforms    = { "ios" => "8.0" }
+  s.platforms    = { "ios" => "9.0" }
 
   s.source       = { :git => 'https://github.com/cbot/Vincent.git', :tag => s.version.to_s }
   s.source_files  = 'Classes/*'
   s.dependency 'CryptoSwift', '~> 0.6.0'
-  s.pod_target_xcconfig = { 'SWIFT_VERSION' => '3.0'}
+  s.dependency 'AsyncImageCache'
 end

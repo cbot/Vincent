@@ -1,11 +1,3 @@
-//
-//  VincentImageView.swift
-//  Pods
-//
-//  Created by Privat on 24.05.16.
-//
-//
-
 import UIKit
 
 public class VincentImageView: UIImageView {
