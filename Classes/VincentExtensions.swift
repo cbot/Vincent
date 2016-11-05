@@ -1,11 +1,5 @@
 import UIKit
 
-public protocol VincentView {
-    var vincent: VincentViewHandler { get }
-    func cancelImageDownload()
-    func invalidateImageDownload()
-}
-
 public protocol VincentURL {
     var toUrl: URL? { get }
 }
@@ -17,27 +11,7 @@ extension String: VincentURL {
 }
 
 fileprivate var handlerKey = "handler"
-extension VincentView {
-    public var vincent: VincentViewHandler {
-        if let obj = objc_getAssociatedObject(self, &handlerKey) as? VincentViewHandler {
-            return obj
-        } else {
-            let obj = VincentViewHandler()
-            objc_setAssociatedObject(self, &handlerKey, obj, .OBJC_ASSOCIATION_RETAIN)
-            return obj
-        }
-    }
-    
-    public func cancelImageDownload() {
-        vincent.cancel()
-    }
-    
-    public func invalidateImageDownload() {
-        vincent.invalidate()
-    }
-}
-
-public class VincentViewHandler {
+public class VincentViewHandler: NSObject {
     private var downloadIdentifiers = Set<String>()
     
     func cancel() {
@@ -67,9 +41,27 @@ public class VincentViewHandler {
     }
 }
 
-extension UIImageView: VincentView {
-    public func setImage(withUrl vincentUrl: VincentURL, cacheType: CacheType = .automatic, requestModification: ((_ request: URLRequest) -> URLRequest)? = nil, completion: ((_ result: VincentImageCompletionType) -> ())? = nil) {
+extension UIImageView {
+    public var vincent: VincentViewHandler {
+        if let obj = objc_getAssociatedObject(self, &handlerKey) as? VincentViewHandler {
+            return obj
+        } else {
+            let obj = VincentViewHandler()
+            objc_setAssociatedObject(self, &handlerKey, obj, .OBJC_ASSOCIATION_RETAIN)
+            return obj
+        }
+    }
     
+    public func cancelImageDownload() {
+        vincent.cancel()
+    }
+    
+    public func invalidateImageDownload() {
+        vincent.invalidate()
+    }
+    
+    public func setImage(withUrl vincentUrl: VincentURL, cacheType: CacheType = .automatic, requestModification: ((_ request: URLRequest) -> URLRequest)? = nil, completion: ((_ result: VincentImageCompletionType) -> ())? = nil) {
+        
         vincent.load(url: vincentUrl.toUrl, cacheType: cacheType, requestModification: requestModification) { [weak self] result in
             if case .image(let image) = result {
                 self?.image = image
@@ -79,7 +71,26 @@ extension UIImageView: VincentView {
     }
 }
 
-extension UIButton: VincentView {
+
+extension UIButton {
+    public var vincent: VincentViewHandler {
+        if let obj = objc_getAssociatedObject(self, &handlerKey) as? VincentViewHandler {
+            return obj
+        } else {
+            let obj = VincentViewHandler()
+            objc_setAssociatedObject(self, &handlerKey, obj, .OBJC_ASSOCIATION_RETAIN)
+            return obj
+        }
+    }
+    
+    public func cancelImageDownload() {
+        vincent.cancel()
+    }
+    
+    public func invalidateImageDownload() {
+        vincent.invalidate()
+    }
+    
     public func setImage(withUrl vincentUrl: VincentURL, for controlState: UIControlState, cacheType: CacheType = .automatic, requestModification: ((_ request: URLRequest) -> URLRequest)? = nil, completion: ((_ result: VincentImageCompletionType) -> ())? = nil) {
         
         vincent.load(url: vincentUrl.toUrl, cacheType: cacheType, requestModification: requestModification) { [weak self] result in
