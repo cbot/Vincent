@@ -99,6 +99,9 @@ public class VincentOperation: Operation, URLSessionDelegate, URLSessionTaskDele
         
         if (200...299).contains(response.statusCode) {
             if let data = try? Data(contentsOf: location), let image = UIImage(data: data) {
+                if let request = downloadTask.currentRequest {
+                    URLCache.shared.storeCachedResponse(CachedURLResponse(response: response, data: data), for: request)
+                }
                 finishedCallbackQueue.async {
                     self.finishedBlock(self, .success(image: image, data: data))
                 }
