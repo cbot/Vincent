@@ -33,9 +33,13 @@ public class VincentViewHandler: NSObject {
         if let url = url {
             let identifier = UUID().uuidString
             downloadIdentifiers.insert(identifier)
-            Vincent.sharedInstance.retrieveImage(fromUrl: url, cacheType: cacheType, requestModification: nil, completion: { [weak self] result in
-                self?.downloadIdentifiers.remove(identifier)
-                completion?(result)
+            Vincent.sharedInstance.retrieveImage(fromUrl: url, cacheType: cacheType, requestModification: nil, customIdentifier: identifier, completion: { [weak self] result in
+                if self?.downloadIdentifiers.contains(identifier) ?? false {
+                    self?.downloadIdentifiers.remove(identifier)
+                    completion?(result)
+                } else {
+                    completion?(.canceledOrInvalidated)
+                }
             })
         }
     }
@@ -60,10 +64,27 @@ extension UIImageView {
         vincent.invalidate()
     }
     
-    public func setImage(withUrl vincentUrl: VincentURL, cacheType: CacheType = .automatic, requestModification: ((_ request: URLRequest) -> URLRequest)? = nil, completion: ((_ result: VincentImageCompletionType) -> ())? = nil) {
+    public func setImage(withUrl vincentUrl: VincentURL, placeholder: UIImage? = nil, cacheType: CacheType = .automatic, requestModification: ((_ request: URLRequest) -> URLRequest)? = nil, completion: ((_ result: VincentImageCompletionType) -> ())? = nil) {
+        
+        var loaded = false
+        
+        if let placeholder = placeholder {
+            image = placeholder
+        } else {
+            // try to fetch from cache
+            image = nil
+            vincent.load(url: vincentUrl.toUrl, cacheType: .fromCache, requestModification: requestModification, completion: { [weak self] result in
+                if case .image(let image) = result {
+                    if !loaded {
+                        self?.image = image
+                    }
+                }
+            })
+        }
         
         vincent.load(url: vincentUrl.toUrl, cacheType: cacheType, requestModification: requestModification) { [weak self] result in
             if case .image(let image) = result {
+                loaded = true
                 self?.image = image
             }
             completion?(result)
@@ -91,10 +112,27 @@ extension UIButton {
         vincent.invalidate()
     }
     
-    public func setImage(withUrl vincentUrl: VincentURL, for controlState: UIControlState, cacheType: CacheType = .automatic, requestModification: ((_ request: URLRequest) -> URLRequest)? = nil, completion: ((_ result: VincentImageCompletionType) -> ())? = nil) {
+    public func setImage(withUrl vincentUrl: VincentURL, for controlState: UIControlState, placeholder: UIImage? = nil, cacheType: CacheType = .automatic, requestModification: ((_ request: URLRequest) -> URLRequest)? = nil, completion: ((_ result: VincentImageCompletionType) -> ())? = nil) {
+        
+        var loaded = false
+        
+        if let placeholder = placeholder {
+            setImage(placeholder, for: controlState)
+        } else {
+            setImage(nil, for: controlState)
+            // try to fetch from cache
+            vincent.load(url: vincentUrl.toUrl, cacheType: .fromCache, requestModification: requestModification, completion: { [weak self] result in
+                if case .image(let image) = result {
+                    if !loaded {
+                        self?.setImage(image, for: controlState)
+                    }
+                }
+            })
+        }
         
         vincent.load(url: vincentUrl.toUrl, cacheType: cacheType, requestModification: requestModification) { [weak self] result in
             if case .image(let image) = result {
+                loaded = true
                 self?.setImage(image, for: controlState)
             }
             completion?(result)
