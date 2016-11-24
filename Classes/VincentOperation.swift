@@ -127,7 +127,7 @@ public class VincentOperation: Operation, URLSessionDelegate, URLSessionTaskDele
         state = .finished
     }
     
-    func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge, completionHandler: (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+    public func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
         if let serverTrust = challenge.protectionSpace.serverTrust, challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust {
             if trustsAllCertificates {
                 completionHandler(Foundation.URLSession.AuthChallengeDisposition.useCredential, URLCredential(trust: serverTrust))
@@ -144,7 +144,7 @@ public class VincentOperation: Operation, URLSessionDelegate, URLSessionTaskDele
             completionHandler(.performDefaultHandling, nil)
         }
     }
-
+    
     // MARK: - Utility
     public override func cancel() {
         invalidated = true

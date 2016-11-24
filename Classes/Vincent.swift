@@ -68,8 +68,6 @@ public class Vincent {
     public func downloadImage(fromUrl url: URL, cachePolicy: NSURLRequest.CachePolicy, requestModification: ((_ request: URLRequest) -> URLRequest)? = nil, customIdentifier: String? = nil, completion: ((_ result: VincentDownloadCompletionType, _ invalidated: Bool) -> ())?) -> String {
         
         let identifier: String = customIdentifier ?? UUID().uuidString
-        let cacheKey = transformUrlToCacheKey(url)
-        
         var request = URLRequest(url: url, cachePolicy: cachePolicy, timeoutInterval: timeoutInterval)
         
         // set headers
@@ -108,7 +106,7 @@ public class Vincent {
     public func retrieveImage(fromUrl url: URL, cacheType: CacheType, requestModification: ((_ request: URLRequest) -> URLRequest)? = nil, customIdentifier: String? = nil, completion: ((_ result: VincentImageCompletionType) -> ())?) {
         let cacheKey = transformUrlToCacheKey(url)
         
-        let downloadAction = { (cachePolicy: NSURLRequest.CachePolicy) in
+        let downloadAction = { (cachePolicy: NSURLRequest.CachePolicy) -> Void in
             self.downloadImage(fromUrl: url, cachePolicy: cachePolicy, requestModification: requestModification, customIdentifier: customIdentifier, completion: { completionType, invalidated in
                 
                 if invalidated {

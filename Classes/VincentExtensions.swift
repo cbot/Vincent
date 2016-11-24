@@ -35,7 +35,7 @@ public class VincentViewHandler: NSObject {
             downloadIdentifiers.insert(identifier)
             Vincent.sharedInstance.retrieveImage(fromUrl: url, cacheType: cacheType, requestModification: nil, customIdentifier: identifier, completion: { [weak self] result in
                 if self?.downloadIdentifiers.contains(identifier) ?? false {
-                    self?.downloadIdentifiers.remove(identifier)
+                    let _ = self?.downloadIdentifiers.remove(identifier)
                     completion?(result)
                 } else {
                     completion?(.canceledOrInvalidated)
