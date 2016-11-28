@@ -1,5 +1,5 @@
 import UIKit
-import CryptoSwift
+import CryptoKit
 import AsyncImageCache
 
 public enum VincentDownloadCompletionType {
@@ -219,9 +219,11 @@ public class Vincent {
         if let key = keyCache.object(forKey: urlString as NSString) as? String {
             return key
         } else {
-            let key = urlString.md5()
-            keyCache.setObject(key as NSString, forKey: urlString as NSString)
-            return key
+            if let data = urlString.data(using: .utf8) {
+                return data.digest(using: .md5).hexString
+            } else {
+                return ""
+            }
         }
     }
 }
@@ -289,5 +291,12 @@ private class VincentGlobalCredentials {
         } else {
             return allHostsCredentials
         }
+    }
+}
+
+// MARK: - Data Extension
+fileprivate extension Data {
+    var hexString: String {
+        return reduce("") {$0 + String(format: "%02x", $1)}
     }
 }
