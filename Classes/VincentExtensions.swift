@@ -73,10 +73,13 @@ extension UIImageView {
         } else {
             // try to fetch from cache
             image = nil
+            (self as? VincentImageView)?.activityIndicator.startAnimating()
+            
             vincent.load(url: vincentUrl.toUrl, cacheType: .fromCache, requestModification: requestModification, completion: { [weak self] result in
                 if case .image(let image) = result {
                     if !loaded {
                         self?.image = image
+                        (self as? VincentImageView)?.activityIndicator.stopAnimating()
                     }
                 }
             })
@@ -87,6 +90,7 @@ extension UIImageView {
                 loaded = true
                 self?.image = image
             }
+            (self as? VincentImageView)?.activityIndicator.stopAnimating()
             completion?(result)
         }
     }
