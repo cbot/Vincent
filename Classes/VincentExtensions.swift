@@ -76,7 +76,7 @@ extension UIImageView {
             (self as? VincentImageView)?.activityIndicator.startAnimating()
             
             vincent.load(url: vincentUrl.toUrl, cacheType: .fromCache, requestModification: requestModification, completion: { [weak self] result in
-                if case .image(let image) = result {
+                if case .image(let image, _) = result {
                     if !loaded {
                         self?.image = image
                         (self as? VincentImageView)?.activityIndicator.stopAnimating()
@@ -86,7 +86,7 @@ extension UIImageView {
         }
         
         vincent.load(url: vincentUrl.toUrl, cacheType: cacheType, requestModification: requestModification) { [weak self] result in
-            if case .image(let image) = result {
+            if case .image(let image, _) = result {
                 loaded = true
                 self?.image = image
             }
@@ -126,7 +126,7 @@ extension UIButton {
             setImage(nil, for: controlState)
             // try to fetch from cache
             vincent.load(url: vincentUrl.toUrl, cacheType: .fromCache, requestModification: requestModification, completion: { [weak self] result in
-                if case .image(let image) = result {
+                if case .image(let image, _) = result {
                     if !loaded {
                         self?.setImage(image, for: controlState)
                     }
@@ -135,7 +135,7 @@ extension UIButton {
         }
         
         vincent.load(url: vincentUrl.toUrl, cacheType: cacheType, requestModification: requestModification) { [weak self] result in
-            if case .image(let image) = result {
+            if case .image(let image, _) = result {
                 loaded = true
                 self?.setImage(image, for: controlState)
             }

@@ -11,5 +11,5 @@ Pod::Spec.new do |s|
   s.source       = { :git => 'https://github.com/cbot/Vincent.git', :tag => s.version.to_s }
   s.source_files  = 'Classes/*'
   s.dependency 'CryptoKit', '~> 0.3.6'
-  s.dependency 'AsyncImageCache', '~> 1.0.1'
+  s.dependency 'AsyncImageCache', '~> 1.1.0'
 end

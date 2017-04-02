@@ -11,7 +11,7 @@ public enum VincentDownloadCompletionType {
 public enum VincentImageCompletionType {
     case canceledOrInvalidated
     case error(error: NSError)
-    case image(image: UIImage)
+    case image(image: UIImage, data: Data)
 }
 
 /**
@@ -119,7 +119,7 @@ public class Vincent {
                         completion?(.error(error: error))
                     case .success(let image, let data):
                         self.cache.store(data: data, forKey: cacheKey, image: image, callbackQueue: DispatchQueue.main, completion: { 
-                            completion?(.image(image: image))
+                            completion?(.image(image: image, data: data))
                         })
                     }
                 }
@@ -135,7 +135,7 @@ public class Vincent {
             cache.fetch(itemWithKey: cacheKey) { item in
                 if let item = item {
                     if cacheType == .fromCache || cacheType == .forceCache || Date().timeIntervalSince(item.created) < self.cacheStaleInterval {
-                        completion?(.image(image: item.image))
+                        completion?(.image(image: item.image, data: item.data))
                     } else {
                         downloadAction(.useProtocolCachePolicy)
                     }
@@ -216,7 +216,7 @@ public class Vincent {
     private func transformUrlToCacheKey(_ url: URL) -> String {
         let urlString = url.absoluteString
         
-        if let key = keyCache.object(forKey: urlString as NSString) as? String {
+        if let key = keyCache.object(forKey: urlString as NSString) as String? {
             return key
         } else {
             if let data = urlString.data(using: .utf8) {
