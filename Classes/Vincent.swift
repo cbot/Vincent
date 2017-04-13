@@ -216,7 +216,7 @@ public class Vincent {
     private func transformUrlToCacheKey(_ url: URL) -> String {
         let urlString = url.absoluteString
         
-        if let key = keyCache.object(forKey: urlString as NSString) as? String {
+        if let key = keyCache.object(forKey: urlString as NSString) as String? {
             return key
         } else {
             if let data = urlString.data(using: .utf8) {

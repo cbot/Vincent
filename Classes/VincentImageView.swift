@@ -140,7 +140,7 @@ public class ActivityIndicatorView: UIView {
     }
     
     private func layoutPath() -> UIBezierPath {
-        let twoPi = M_PI * 2.0
+        let twoPi = CGFloat.pi * 2.0
         let startAngle = CGFloat(0.75 * twoPi)
         let endAngle = CGFloat(startAngle + CGFloat(twoPi * 0.9))
         let width = bounds.width
@@ -150,7 +150,7 @@ public class ActivityIndicatorView: UIView {
     public func startAnimating() {
         if shapeLayer?.animation(forKey: "spinner") == nil {
             let animation = CABasicAnimation(keyPath: "transform.rotation")
-            animation.toValue = 2 * M_PI
+            animation.toValue = 2 * CGFloat.pi
             animation.timingFunction = CAMediaTimingFunction(name: kCAMediaTimingFunctionLinear)
             animation.duration = 1.0
             animation.repeatCount = Float.infinity
